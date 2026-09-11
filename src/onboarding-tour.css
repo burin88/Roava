@@ -1,0 +1,123 @@
+.atlas-tour-popover.driver-popover {
+  width: min(360px, calc(100vw - 32px));
+  max-width: 360px;
+  padding: 20px;
+  border: 1px solid #365970;
+  border-radius: 16px;
+  color: #eef6fb;
+  background: radial-gradient(circle at 90% 0, #19445d 0, #0d293c 38%, #081e2e 100%);
+  box-shadow: 0 22px 70px rgba(0, 5, 12, 0.62);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.atlas-tour-popover .driver-popover-title {
+  padding-right: 24px;
+  color: #f5f8fa;
+  font: 500 23px/1.3 Georgia, serif;
+}
+
+.atlas-tour-popover .driver-popover-description {
+  margin-top: 9px;
+  color: #b4c6d0;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.atlas-tour-popover .driver-popover-description strong {
+  color: #72e2b7;
+}
+
+.atlas-tour-popover .driver-popover-progress-text {
+  color: #7f9aaa;
+  font-size: 12px;
+}
+
+.atlas-tour-popover .driver-popover-footer {
+  align-items: center;
+  margin-top: 18px;
+}
+
+.atlas-tour-popover .driver-popover-navigation-btns {
+  gap: 7px;
+}
+
+.atlas-tour-popover .driver-popover-next-btn,
+.atlas-tour-popover .driver-popover-prev-btn {
+  min-height: 38px;
+  padding: 8px 13px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 750;
+  text-shadow: none;
+}
+
+.atlas-tour-popover .driver-popover-next-btn {
+  border-color: #52dca7;
+  color: #073328;
+  background: #52dca7;
+}
+
+.atlas-tour-popover .driver-popover-prev-btn {
+  border-color: #42657a;
+  color: #c6d5dc;
+  background: #14344a;
+}
+
+.atlas-tour-popover .driver-popover-close-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  top: 10px;
+  right: 10px;
+  color: #8da7b5;
+  font-size: 24px;
+}
+
+.atlas-tour-popover .driver-popover-close-btn:hover,
+.atlas-tour-popover .driver-popover-close-btn:focus-visible {
+  color: #52dca7;
+}
+
+.atlas-tour-popover .driver-popover-arrow-side-left {
+  border-left-color: #0d293c;
+}
+
+.atlas-tour-popover .driver-popover-arrow-side-right {
+  border-right-color: #0d293c;
+}
+
+.atlas-tour-popover .driver-popover-arrow-side-top {
+  border-top-color: #0d293c;
+}
+
+.atlas-tour-popover .driver-popover-arrow-side-bottom {
+  border-bottom-color: #0d293c;
+}
+
+.driver-active-element {
+  outline: 3px solid rgba(82, 220, 167, 0.82) !important;
+  outline-offset: 4px;
+}
+
+@media (max-width: 620px) {
+  .atlas-tour-popover.driver-popover {
+    padding: 17px;
+  }
+
+  .atlas-tour-popover .driver-popover-title {
+    font-size: 20px;
+  }
+
+  .atlas-tour-popover .driver-popover-description {
+    font-size: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .driver-active-element,
+  .driver-overlay,
+  .driver-popover {
+    transition: none !important;
+  }
+}

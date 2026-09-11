@@ -9,12 +9,12 @@
       <div class="hero-actions d-flex gap-2 flex-wrap">
         @if (country()) { <button class="btn btn-outline-secondary btn-sm" (click)="backToContinent()">Back to {{ continent().name }}</button> }
         <!-- <button class="btn btn-outline-secondary btn-sm" (click)="photoImporterOpen.set(true)">Import photos</button> -->
-        <button class="btn btn-success btn-sm" (click)="editorOpen.set(true)">+ Add journey</button>
+        <button class="btn btn-success btn-sm" data-tour="add-journey" (click)="editorOpen.set(true)">+ Add journey</button>
       </div>
     </div>
   </section>
 
-  <nav class="continent-switcher btn-group w-100" aria-label="Choose a continent">
+  <nav class="continent-switcher btn-group w-100" data-tour="continent-switcher" aria-label="Choose a continent">
     @for (item of continents; track item.code) {
       <button [class.active]="item.code === continent().code" (click)="selectContinent(item.code)"><small>{{ item.code }}</small><span>{{ item.name }}</span></button>
     }
@@ -29,7 +29,7 @@
     <article><span>Expenses</span><strong>{{ continentStats().expenses | number:'1.0-0' }}<small> THB</small></strong><i>THB</i></article>
   </section>
 
-  <section class="map-card card shadow-sm">
+  <section class="map-card card shadow-sm" data-tour="world-map">
     <div class="map-head card-header">
       <div><span class="section-label">{{ country() ? 'COUNTRY VIEW' : 'YOUR TRAVEL FOOTPRINT' }}</span><h2>{{ country() ? 'Choose a city' : 'Explore your ' + continent().name }}</h2></div>
       <div class="legend"><span><i class="visited"></i> Visited</span><span><i></i> Not visited</span></div>
@@ -37,7 +37,7 @@
     <div class="map-stage">
       <atlas-map [trips]="continentTrips()" [countries]="countries()" [continent]="continent()" [continentKey]="continent().code" [selectedCountry]="country()?.code ?? null" (countrySelected)="selectCountry($event)" (citySelected)="openCity($event)" />
       @if (!country()) {
-        <div class="country-jump country-search card" (mousedown)="$event.stopPropagation()">
+        <div class="country-jump country-search card" data-tour="country-search" (mousedown)="$event.stopPropagation()">
           <span>JUMP TO COUNTRY · {{ continent().name | uppercase }}</span>
           <div class="country-search-field">
             <input class="form-control form-control-sm" type="search" [attr.aria-label]="'Search countries in ' + continent().name" [value]="countrySearch()" (focus)="countrySearchOpen.set(true)" (input)="countrySearch.set($any($event.target).value); countrySearchOpen.set(true)" (keydown.enter)="selectFirstCountryMatch(); $event.preventDefault()" (keydown.escape)="countrySearchOpen.set(false)" (blur)="closeCountrySearchSoon()" placeholder="Search country..." autocomplete="off">
@@ -84,7 +84,7 @@
         <div class="journey-list">@for (trip of latestTrips(); track trip.id) {<button (click)="openCity({countryCode:trip.countryCode,cityCode:trip.cityCode})"><span class="journey-icon"><img [src]="flagIconPath(trip.countryCode)" [alt]="(countryByCode(trip.countryCode)?.name || trip.countryCode) + ' flag'" loading="lazy"></span><span><b>{{ trip.name }}</b><small>{{ trip.startDate | date:'d MMM y' }} - {{ trip.endDate | date:'d MMM y' }}</small></span><span class="journey-meta">{{ trip.places.length }} places <b>-></b></span></button>}</div>
       }
     </article>
-    <article class="data-card card col"><span class="section-label">YOUR DATA, YOURS</span><h2>Local backup</h2><p>Trips persist in localStorage and original photos in img/travel-photos. Export JSON regularly to keep a portable copy of your structured memories.</p><div class="data-actions"><button class="btn btn-outline-secondary btn-sm" (click)="exportData()" [disabled]="!store.trips().length">Export data</button><label class="btn btn-outline-secondary btn-sm">Import data<input type="file" accept="application/json" (change)="importData($event)"></label></div><div class="danger-row">@if (continent().code === 'AS') {<button (click)="loadDemo()">Load Beijing demo</button>}<button (click)="reset()">Reset local data</button></div></article>
+    <article class="data-card card col" data-tour="local-backup"><span class="section-label">YOUR DATA, YOURS</span><h2>Local backup</h2><p>Trips persist in localStorage and original photos in img/travel-photos. Export JSON regularly to keep a portable copy of your structured memories.</p><div class="data-actions"><button class="btn btn-outline-secondary btn-sm" (click)="exportData()" [disabled]="!store.trips().length">Export data</button><label class="btn btn-outline-secondary btn-sm">Import data<input type="file" accept="application/json" (change)="importData($event)"></label></div><div class="danger-row">@if (continent().code === 'AS') {<button (click)="loadDemo()">Load Beijing demo</button>}<button (click)="reset()">Reset local data</button></div></article>
   </section>
 </div>
 
