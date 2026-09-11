@@ -1,0 +1,151 @@
+/*
+ * Shared blue surfaces based on the night-sky background used by the
+ * "Your journeys around the world" globe. Keep semantic colours (success,
+ * warning, error and form controls) separate so their meaning stays clear.
+ */
+:root {
+  --atlas-bg: radial-gradient(circle at 50% -20%, #12334c 0, #091f2f 43%, #061924 100%);
+  --atlas-surface: #0d2638;
+  --atlas-surface-2: #091f2f;
+  --atlas-border: #29495f;
+  --atlas-text: #f3f7fa;
+  --atlas-muted: #8ba5b4;
+}
+
+[data-bs-theme='light'] {
+  --atlas-bg: radial-gradient(circle at 50% -20%, #dceef9 0, #f4f9fc 45%, #eaf3f8 100%);
+  --atlas-surface: #fff;
+  --atlas-surface-2: #f6fafd;
+  --atlas-border: #cadae5;
+  --atlas-text: #142c3c;
+  --atlas-muted: #617785;
+}
+
+[data-bs-theme='dark'] .app-header {
+  background: rgba(6, 25, 36, 0.88) !important;
+  border-color: #29495f !important;
+}
+
+[data-bs-theme='dark'] .button.secondary,
+[data-bs-theme='dark'] .globe-actions button {
+  background: #12344a !important;
+  border-color: #365970 !important;
+}
+
+[data-bs-theme='dark'] .profile-dot {
+  background: linear-gradient(135deg, var(--atlas-accent), #246d91) !important;
+}
+
+[data-bs-theme='dark'] .atlas-city-marker span,
+[data-bs-theme='dark'] .maplibregl-popup-content,
+[data-bs-theme='dark'] .maplibregl-ctrl-group {
+  background: #0d293c !important;
+  border-color: #365970 !important;
+}
+
+[data-bs-theme='dark'] atlas-map,
+[data-bs-theme='dark'] atlas-map .atlas-fallback-map {
+  background: #061924 !important;
+}
+
+/* Dashboard */
+[data-bs-theme='dark'] .stats-grid,
+[data-bs-theme='dark'] .stats-grid article,
+[data-bs-theme='dark'] .map-card,
+[data-bs-theme='dark'] .recent-card,
+[data-bs-theme='dark'] .data-card,
+[data-bs-theme='dark'] .memory-section,
+[data-bs-theme='dark'] .empty-memory {
+  background: var(--atlas-surface) !important;
+  border-color: var(--atlas-border) !important;
+}
+
+[data-bs-theme='dark'] .progress-card,
+[data-bs-theme='dark'] .country-card,
+[data-bs-theme='dark'] .country-jump {
+  background: rgba(8, 31, 47, 0.94) !important;
+  border-color: #365970 !important;
+}
+
+[data-bs-theme='dark'] .country-search-field,
+[data-bs-theme='dark'] .country-search-menu,
+[data-bs-theme='dark'] .continent-switcher button,
+[data-bs-theme='dark'] .journey-icon,
+[data-bs-theme='dark'] .location-pin,
+[data-bs-theme='dark'] .trip-rail button.active,
+[data-bs-theme='dark'] .tags span,
+[data-bs-theme='dark'] .timeline-dot span,
+[data-bs-theme='dark'] .expense-icon,
+[data-bs-theme='dark'] .gallery figure {
+  background: #12344a !important;
+  border-color: #365970 !important;
+}
+
+[data-bs-theme='dark'] .country-search-menu button:hover,
+[data-bs-theme='dark'] .country-search-menu button:focus-visible,
+[data-bs-theme='dark'] .continent-switcher button.active,
+[data-bs-theme='dark'] .continent-switcher button:hover {
+  background: #173e57 !important;
+}
+
+[data-bs-theme='dark'] .ring {
+  background: conic-gradient(var(--atlas-accent) calc(var(--progress) * 1%), #29495f 0) !important;
+}
+
+[data-bs-theme='dark'] .ring::after {
+  background: var(--atlas-surface) !important;
+}
+
+/* Journeys */
+[data-bs-theme='dark'] .journey-intelligence {
+  background: #0a2233 !important;
+  border-color: var(--atlas-border) !important;
+}
+
+[data-bs-theme='dark'] .archive-summary,
+[data-bs-theme='dark'] .summary-card {
+  background: linear-gradient(145deg, #12364d, #091f2f) !important;
+  border-color: #365970 !important;
+}
+
+[data-bs-theme='dark'] .toolbar label,
+[data-bs-theme='dark'] .cards article,
+[data-bs-theme='dark'] .flag,
+[data-bs-theme='dark'] .facts span {
+  background: var(--atlas-surface) !important;
+  border-color: var(--atlas-border) !important;
+}
+
+[data-bs-theme='dark'] .facts span,
+[data-bs-theme='dark'] .flag {
+  background: #12344a !important;
+}
+
+/* City memories and galleries */
+[data-bs-theme='dark'] .journey-photo-strip,
+[data-bs-theme='dark'] .place-gallery-modal,
+[data-bs-theme='dark'] .place-day-card {
+  background: #0a2233 !important;
+  border-color: var(--atlas-border) !important;
+}
+
+[data-bs-theme='dark'] .place-gallery-modal header > button,
+[data-bs-theme='dark'] .place-gallery-all figure,
+[data-bs-theme='dark'] .day-calendar {
+  background: #12344a !important;
+  border-color: #365970 !important;
+}
+
+[data-bs-theme='dark'] .place-day-header {
+  background: linear-gradient(100deg, #153a52, #0d293c) !important;
+}
+
+[data-bs-theme='dark'] .place-day-header:hover {
+  background: linear-gradient(100deg, #194762, #11334a) !important;
+}
+
+[data-bs-theme='dark'] .journey-modal-backdrop,
+[data-bs-theme='dark'] .import-backdrop,
+[data-bs-theme='dark'] .modal-backdrop {
+  background: rgba(2, 13, 23, 0.84) !important;
+}

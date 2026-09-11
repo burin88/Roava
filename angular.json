@@ -70,7 +70,7 @@
                 "output": "assets/ocr/lang"
               }
             ],
-            "styles": ["src/styles.css"],
+            "styles": ["src/styles.css", "src/blue-theme.css"],
             "allowedCommonJsDependencies": ["tesseract.js"]
           },
           "configurations": {
