@@ -1,0 +1,123 @@
+<div class="journey-modal-backdrop" (click)="cancelled.emit()">
+  <section class="journey-modal" (click)="$event.stopPropagation()">
+    <header>
+      <div class="editor-title">
+        <span class="globe-orb" aria-hidden="true">🌏</span>
+        <div>
+          <small>{{ trip ? 'EDIT JOURNEY' : 'NEW JOURNEY' }}</small>
+          <h2>{{ trip ? model.name : 'Where did you go?' }}</h2>
+        </div>
+      </div>
+      <button class="icon-button" type="button" (click)="cancelled.emit()">×</button>
+    </header>
+
+    <form #form="ngForm" (ngSubmit)="submit()">
+      <label class="wide">
+        <span>Trip name *</span>
+        <input name="name" [(ngModel)]="model.name" required placeholder="e.g. Beijing 2026">
+      </label>
+
+      <label>
+        <span>Country *</span>
+        <div class="country-combobox">
+          <button class="country-trigger" type="button" (click)="countryMenuOpen = !countryMenuOpen">
+            <img [src]="flagIconPath(selectedCountry.code)" [alt]="selectedCountry.name + ' flag'" loading="lazy">
+            <strong>{{ selectedCountry.name }}</strong>
+            <em>{{ selectedCountry.code }}</em>
+          </button>
+
+          @if (countryMenuOpen) {
+            <div class="country-panel">
+              <input name="countrySearch" [(ngModel)]="countryQuery" [ngModelOptions]="{standalone:true}" placeholder="Search country..." autocomplete="off">
+              <div class="country-options">
+                @for (country of filteredCountries(); track country.code) {
+                  <button type="button" [class.active]="country.code === model.countryCode" (click)="selectCountry(country)">
+                    <img [src]="flagIconPath(country.code)" [alt]="country.name + ' flag'" loading="lazy">
+                    <span>{{ country.name }}</span>
+                    <small>{{ country.code }}</small>
+                  </button>
+                }
+                @if (!filteredCountries().length) {
+                  <p>No country found</p>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      </label>
+
+      <label>
+        <span>City *</span>
+        <input name="city" [(ngModel)]="cityText" [placeholder]="selectedCountry.cities[0]?.name || 'City name'">
+      </label>
+
+      <label>
+        <span>Start date *</span>
+        <input name="start" type="date" [(ngModel)]="model.startDate" required>
+      </label>
+
+      <label>
+        <span>End date *</span>
+        <input name="end" type="date" [(ngModel)]="model.endDate" [min]="model.startDate" required>
+      </label>
+
+      <label class="wide">
+        <span>Description</span>
+        <textarea name="description" [(ngModel)]="model.description" rows="3" placeholder="A short description of this journey"></textarea>
+      </label>
+
+      <label>
+        <span>Transport</span>
+        <input name="transport" [(ngModel)]="model.transport" placeholder="Flight, train, road trip...">
+      </label>
+
+      <label>
+        <span>Hotel</span>
+        <input name="hotel" [(ngModel)]="model.hotel" placeholder="Where you stayed">
+      </label>
+
+      <label>
+        <span>Restaurant</span>
+        <input name="restaurant" [(ngModel)]="model.restaurant" placeholder="A memorable meal">
+      </label>
+
+      <label>
+        <span>Tickets</span>
+        <input name="ticket" [(ngModel)]="model.ticket" placeholder="Booking or ticket notes">
+      </label>
+
+      <label class="wide">
+        <span>Route</span>
+        <input name="route" [(ngModel)]="model.route" placeholder="PEK -> Lama Temple -> Beihai Park">
+      </label>
+
+      <label class="wide">
+        <span>Memories & notes</span>
+        <textarea name="notes" [(ngModel)]="model.notes" rows="4" placeholder="What made this trip special?"></textarea>
+      </label>
+
+      <div class="rating-field">
+        <span>Rating</span>
+        <div class="rating-options">
+          <button type="button" [class.active]="!model.rating" (click)="model.rating = 0">Not rated</button>
+          @for (value of ratingValues; track value) {
+            <button type="button" [class.active]="model.rating === value" (click)="model.rating = value">
+              <span class="stars" [style.--fill]="ratingPercent(value)">★★★★★</span>
+              <small>{{ value }}</small>
+            </button>
+          }
+        </div>
+      </div>
+
+      <label>
+        <span>Tags</span>
+        <input name="tags" [(ngModel)]="tagsText" placeholder="culture, food, solo">
+      </label>
+
+      <footer class="wide">
+        <button type="button" class="button ghost" (click)="cancelled.emit()">Cancel</button>
+        <button type="submit" class="button primary" [disabled]="form.invalid">Save journey</button>
+      </footer>
+    </form>
+  </section>
+</div>

@@ -1,0 +1,43 @@
+{
+  "name": "asia-travel-atlas",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "node ./node_modules/@angular/cli/bin/ng.js",
+    "start": "node ./server/dev-server.mjs",
+    "media": "node ./server/media-server.mjs",
+    "build": "node ./node_modules/@angular/cli/bin/ng.js build",
+    "watch": "node ./node_modules/@angular/cli/bin/ng.js build --watch --configuration development",
+    "test": "node ./node_modules/@angular/cli/bin/ng.js test",
+    "generate:map": "node ./scripts/generate-world-maps.mjs"
+  },
+  "private": true,
+  "packageManager": "npm@11.17.0",
+  "dependencies": {
+    "@angular/common": "^22.1.0",
+    "@angular/compiler": "^22.1.0",
+    "@angular/core": "^22.1.0",
+    "@angular/forms": "^22.1.0",
+    "@angular/platform-browser": "^22.1.0",
+    "@angular/router": "^22.1.0",
+    "@tesseract.js-data/eng": "^1.0.0",
+    "@tesseract.js-data/tha": "^1.0.0",
+    "bootstrap": "^5.3.8",
+    "flag-icons": "^7.5.0",
+    "i18n-iso-countries": "^7.14.0",
+    "maplibre-gl": "^6.9.0",
+    "rxjs": "~7.8.0",
+    "tesseract.js": "^7.0.0",
+    "topojson-client": "^3.1.0",
+    "tslib": "^2.3.0",
+    "world-atlas": "^2.0.2"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.1.7",
+    "@angular/cli": "^22.1.7",
+    "@angular/compiler-cli": "^22.1.0",
+    "d3-geo": "^3.1.1",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "world-countries": "^5.1.0"
+  }
+}

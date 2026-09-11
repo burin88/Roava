@@ -1,0 +1,93 @@
+<div class="dashboard-shell container-fluid">
+  <section class="hero py-5">
+    <div class="eyebrow">PERSONAL TRAVEL MEMORY · {{ continent().name | uppercase }}</div>
+    <div class="hero-row d-flex justify-content-between align-items-end flex-wrap gap-3">
+      <div>
+        <h1>{{ country()?.name ?? 'My ' + continent().name }}</h1>
+        <p>{{ country() ? 'Cities, journeys and memories from ' + country()?.name : 'Every place you have been. Every memory you have made.' }}</p>
+      </div>
+      <div class="hero-actions d-flex gap-2 flex-wrap">
+        @if (country()) { <button class="btn btn-outline-secondary btn-sm" (click)="backToContinent()">Back to {{ continent().name }}</button> }
+        <!-- <button class="btn btn-outline-secondary btn-sm" (click)="photoImporterOpen.set(true)">Import photos</button> -->
+        <button class="btn btn-success btn-sm" (click)="editorOpen.set(true)">+ Add journey</button>
+      </div>
+    </div>
+  </section>
+
+  <nav class="continent-switcher btn-group w-100" aria-label="Choose a continent">
+    @for (item of continents; track item.code) {
+      <button [class.active]="item.code === continent().code" (click)="selectContinent(item.code)"><small>{{ item.code }}</small><span>{{ item.name }}</span></button>
+    }
+  </nav>
+
+  <section class="stats-grid shadow-sm">
+    <article><span>Countries</span><strong>{{ visitedCountryCount() }}<small> / {{ countries().length }}</small></strong><i>◎</i></article>
+    <article><span>Cities</span><strong>{{ continentStats().cities }}</strong><i>⌂</i></article>
+    <article><span>Journeys</span><strong>{{ continentStats().trips }}</strong><i>↗</i></article>
+    <article><span>Places</span><strong>{{ continentStats().places | number }}</strong><i>◆</i></article>
+    <article><span>Travel days</span><strong>{{ continentStats().days }}</strong><i>◷</i></article>
+    <article><span>Expenses</span><strong>{{ continentStats().expenses | number:'1.0-0' }}<small> THB</small></strong><i>THB</i></article>
+  </section>
+
+  <section class="map-card card shadow-sm">
+    <div class="map-head card-header">
+      <div><span class="section-label">{{ country() ? 'COUNTRY VIEW' : 'YOUR TRAVEL FOOTPRINT' }}</span><h2>{{ country() ? 'Choose a city' : 'Explore your ' + continent().name }}</h2></div>
+      <div class="legend"><span><i class="visited"></i> Visited</span><span><i></i> Not visited</span></div>
+    </div>
+    <div class="map-stage">
+      <atlas-map [trips]="continentTrips()" [countries]="countries()" [continent]="continent()" [continentKey]="continent().code" [selectedCountry]="country()?.code ?? null" (countrySelected)="selectCountry($event)" (citySelected)="openCity($event)" />
+      @if (!country()) {
+        <div class="country-jump country-search card" (mousedown)="$event.stopPropagation()">
+          <span>JUMP TO COUNTRY · {{ continent().name | uppercase }}</span>
+          <div class="country-search-field">
+            <input class="form-control form-control-sm" type="search" [attr.aria-label]="'Search countries in ' + continent().name" [value]="countrySearch()" (focus)="countrySearchOpen.set(true)" (input)="countrySearch.set($any($event.target).value); countrySearchOpen.set(true)" (keydown.enter)="selectFirstCountryMatch(); $event.preventDefault()" (keydown.escape)="countrySearchOpen.set(false)" (blur)="closeCountrySearchSoon()" placeholder="Search country..." autocomplete="off">
+            <i aria-hidden="true">⌕</i>
+          </div>
+          @if (countrySearchOpen()) {
+            <div class="country-search-menu" role="listbox">
+              @for (item of filteredCountries(); track item.code) {
+                <button type="button" role="option" (mousedown)="$event.preventDefault()" (click)="selectCountryFromSearch(item.code)">
+                  <img [src]="flagIconPath(item.code)" [alt]="item.name + ' flag'" loading="lazy">
+                  <span>{{ item.name }}</span>
+                  <small>{{ item.code }}</small>
+                </button>
+              } @empty {
+                <p>No country found</p>
+              }
+            </div>
+          }
+        </div>
+      }
+      @if (!country()) {
+        <aside class="progress-card card"><div class="ring" [style.--progress]="progress()"><strong>{{ progress() }}%</strong></div><div><small>{{ continent().name | uppercase }} EXPLORED</small><b>{{ visitedCountryCount() }} of {{ countries().length }} countries</b><span>Keep filling your map</span></div></aside>
+      } @else {
+        <aside class="country-card card">
+          <div class="flag"><img [src]="flagIconPath(country()!.code)" [alt]="country()!.name + ' flag'" loading="lazy"></div><small>COUNTRY MEMORY</small><h3>{{ country()?.name }}</h3>
+          <div class="country-numbers"><span><b>{{ countryTrips().length }}</b> trips</span><span><b>{{ country()?.cities?.length }}</b> cities on map</span></div>
+          <p>Green city markers have memories. Select any city to open its memory page.</p>
+          <div class="city-list">
+            @for (city of country()?.cities; track city.code) {
+              <button (click)="openCity({ countryCode: country()!.code, cityCode: city.code })"><i [class.visited]="store.visitedCities().has(country()!.code + ':' + city.code)"></i><span>{{ city.name }}</span><small>{{ store.visitedCities().has(country()!.code + ':' + city.code) ? 'EXPLORED' : 'ADD MEMORY' }}</small></button>
+            }
+          </div>
+        </aside>
+      }
+    </div>
+  </section>
+
+  <section class="lower-grid row g-3">
+    <article class="recent-card card col">
+      <div class="card-heading"><div><span class="section-label">RECENT MEMORIES</span><h2>Your latest journeys</h2></div><button class="btn btn-link text-success p-0" (click)="editorOpen.set(true)">Add new -></button></div>
+      @if (!latestTrips().length) {
+        <div class="empty-state"><span>⌖</span><h3>Your {{ continent().name }} atlas is waiting</h3><p>Add a journey to begin coloring this continent with your memories.</p>@if (continent().code === 'AS') {<button class="btn btn-success btn-sm" (click)="loadDemo()">Explore Beijing demo</button>} @else {<button class="btn btn-success btn-sm" (click)="editorOpen.set(true)">Add a journey</button>}</div>
+      } @else {
+        <div class="journey-list">@for (trip of latestTrips(); track trip.id) {<button (click)="openCity({countryCode:trip.countryCode,cityCode:trip.cityCode})"><span class="journey-icon"><img [src]="flagIconPath(trip.countryCode)" [alt]="(countryByCode(trip.countryCode)?.name || trip.countryCode) + ' flag'" loading="lazy"></span><span><b>{{ trip.name }}</b><small>{{ trip.startDate | date:'d MMM y' }} - {{ trip.endDate | date:'d MMM y' }}</small></span><span class="journey-meta">{{ trip.places.length }} places <b>-></b></span></button>}</div>
+      }
+    </article>
+    <article class="data-card card col"><span class="section-label">YOUR DATA, YOURS</span><h2>Local backup</h2><p>Trips persist in localStorage and original photos in img/travel-photos. Export JSON regularly to keep a portable copy of your structured memories.</p><div class="data-actions"><button class="btn btn-outline-secondary btn-sm" (click)="exportData()" [disabled]="!store.trips().length">Export data</button><label class="btn btn-outline-secondary btn-sm">Import data<input type="file" accept="application/json" (change)="importData($event)"></label></div><div class="danger-row">@if (continent().code === 'AS') {<button (click)="loadDemo()">Load Beijing demo</button>}<button (click)="reset()">Reset local data</button></div></article>
+  </section>
+</div>
+
+@if (editorOpen()) { <trip-editor [countries]="countries()" [presetCountryCode]="country()?.code ?? ''" (saved)="saveTrip($event)" (cancelled)="editorOpen.set(false)" /> }
+@if (photoImporterOpen()) { <photo-importer [countries]="countries()" [presetCountryCode]="country()?.code ?? ''" (created)="smartImportCreated($event)" (cancelled)="photoImporterOpen.set(false)" /> }
+@if (toast()) { <div class="toast">OK {{ toast() }}</div> }

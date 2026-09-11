@@ -1,0 +1,72 @@
+<div class="journeys-shell">
+  <header>
+    <div>
+      <span>YOUR TRAVEL ARCHIVE</span>
+      <h1>Journeys</h1>
+      <p>All the chapters that color your map.</p>
+    </div>
+    <button class="button primary" (click)="open(null)">＋ Add journey</button>
+  </header>
+
+  <section class="journey-intelligence">
+    <article class="archive-summary">
+      <div class="summary-label"><i></i> AI TRAVEL SUMMARY <span>LIVE</span></div>
+      <h2>{{ archiveSummary().headline }}</h2>
+      <p>{{ archiveSummary().narrative }}</p>
+      <div class="summary-insights">
+        @for (insight of archiveSummary().insights; track insight; let index = $index) {
+          <div><span>0{{ index + 1 }}</span><p>{{ insight }}</p></div>
+        }
+      </div>
+      <small>Re-analyzed automatically whenever a journey is added, edited or deleted.</small>
+    </article>
+
+    <world-globe [visitedCountries]="visitedCountryCodes()" />
+  </section>
+
+  <div class="toolbar">
+    <label>⌕<input [ngModel]="query()" (ngModelChange)="query.set($event)" placeholder="Search city, country or tag"></label>
+    <span>{{ filtered().length }} journey{{ filtered().length === 1 ? '' : 's' }}</span>
+  </div>
+
+  @if (!filtered().length) {
+    <section class="empty">
+      <span>⌖</span>
+      <h2>{{ store.trips().length ? 'No matching journeys' : 'The first chapter starts here' }}</h2>
+      <p>{{ store.trips().length ? 'Try a different search.' : 'Add a trip and watch its country light up on your world atlas.' }}</p>
+      <button class="button primary" (click)="open(null)">Add journey</button>
+    </section>
+  }
+
+  <section class="cards">
+    @for (trip of filtered(); track trip.id) {
+      <article>
+        <a class="card-main" [routerLink]="['/city',trip.countryCode,trip.cityCode]">
+          <div class="flag"><img [src]="flagIconPath(trip.countryCode)" [alt]="(country(trip.countryCode)?.name || trip.countryCode) + ' flag'" loading="lazy"></div>
+          <span class="place">{{ cityName(trip) }} · {{ country(trip.countryCode)?.name }}</span>
+          <h2>{{ trip.name }}</h2>
+          <p>{{ trip.description || trip.notes || 'A journey in your personal atlas.' }}</p>
+          <div class="facts">
+            <span>{{ trip.startDate | date:'d MMM y' }} — {{ trip.endDate | date:'d MMM y' }}</span>
+            <span>{{ trip.places.length }} places</span>
+            <span>{{ trip.mediaIds.length }} photos</span>
+          </div>
+          <div class="tags">
+            @for (tag of trip.tags; track tag) {
+              <i>#{{ tag }}</i>
+            }
+          </div>
+        </a>
+        <footer>
+          <button (click)="open(trip)">Edit</button>
+          <button (click)="remove(trip)">Delete</button>
+          <a [routerLink]="['/city',trip.countryCode,trip.cityCode]">Open memory →</a>
+        </footer>
+      </article>
+    }
+  </section>
+</div>
+
+@if (editorOpen()) {
+  <trip-editor [trip]="editing()" (saved)="save($event)" (cancelled)="editorOpen.set(false)" />
+}

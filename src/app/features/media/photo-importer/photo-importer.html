@@ -1,0 +1,73 @@
+<div class="import-backdrop" (click)="cancelled.emit()">
+  <section class="import-modal" (click)="$event.stopPropagation()">
+    <header>
+      <div><span class="ai-badge">✦ LOCAL PHOTO AI</span><h2>Turn photos into a journey</h2><p>OCR ภาษาไทยและอังกฤษ · วิเคราะห์ใน browser · รูปไม่ถูกส่งออกนอกเครื่อง</p></div>
+      <button class="close" type="button" (click)="cancelled.emit()">×</button>
+    </header>
+
+    @if (phase() === 'select') {
+      <div class="step-line"><b>1</b><span>Choose photos</span><i></i><b>2</b><span>Scan & analyze</span><i></i><b>3</b><span>Review</span></div>
+      <label class="drop-zone">
+        <input type="file" accept="image/*" multiple (change)="choose($event)">
+        <span class="scan-icon">▧</span><strong>{{ photos().length ? 'Add or replace photos' : 'Choose multiple images' }}</strong>
+        <small>ใบเสร็จ · ตั๋ว · ป้ายสถานที่ · booking · travel screenshots</small><em>สูงสุด 30 รูปต่อครั้ง</em>
+      </label>
+      @if (photos().length) {
+        <div class="selection-head"><b>{{ photos().length }} images ready</b><span>AI จะอ่านข้อความจากทุกรูปแล้วรวมเป็น Trip เดียว</span></div>
+        <div class="photo-strip">@for (photo of photos(); track trackPhoto($index); let index = $index) {<figure><img [src]="photo.url" [alt]="photo.file.name"><figcaption>{{ photo.file.name }}</figcaption><button type="button" (click)="remove(index)">×</button></figure>}</div>
+      }
+      <footer><button class="button ghost" type="button" (click)="cancelled.emit()">Cancel</button><button class="button primary" type="button" [disabled]="!photos().length" (click)="scan()">✦ OCR & analyze {{ photos().length ? photos().length + ' photos' : '' }}</button></footer>
+    }
+
+    @if (phase() === 'scanning') {
+      <div class="processing">
+        <div class="orb"><span>✦</span></div><span class="ai-badge">ON-DEVICE PROCESSING</span><h3>{{ progress()?.status || 'Preparing OCR' }}</h3>
+        <p>รูปที่ {{ progress()?.currentFile }} จาก {{ progress()?.totalFiles }} · {{ progress()?.fileName }}</p>
+        <div class="progress-track"><i [style.width.%]="overallProgress()"></i></div><strong>{{ overallProgress() }}%</strong>
+        <small>ครั้งแรกอาจใช้เวลาสักครู่เพื่อโหลดโมเดลภาษาไทยและอังกฤษจากไฟล์ภายในแอป</small>
+      </div>
+    }
+
+    @if (phase() === 'review' && draft) {
+      <div class="review-top">
+        <div class="confidence" [style.--confidence]="draft.confidence"><strong>{{ draft.confidence }}%</strong><span>CONFIDENCE</span></div>
+        <div><span class="ai-badge">ANALYSIS COMPLETE</span><h3>ตรวจสอบก่อนสร้าง Journey</h3><p>{{ draft.signals.join(' · ') }}</p></div>
+      </div>
+      <form #reviewForm="ngForm" (ngSubmit)="save()">
+        <section class="review-section">
+          <div class="review-heading"><div><b>Journey details</b><small>AI inferred these fields from all selected images</small></div><span>Editable</span></div>
+          <div class="form-grid">
+            <label class="wide"><span>Trip name *</span><input name="importName" [(ngModel)]="draft.name" required></label>
+            <label><span>Country</span><select name="importCountry" [(ngModel)]="draft.countryCode" (change)="countryChanged()"><option *ngFor="let country of countries" [value]="country.code">{{ country.flag }} {{ country.name }}</option></select></label>
+            <label><span>City</span><select name="importCity" [(ngModel)]="draft.cityCode"><option *ngFor="let city of selectedCountry.cities" [value]="city.code">{{ city.name }}</option></select></label>
+            <label><span>Start date *</span><input name="importStart" type="date" [(ngModel)]="draft.startDate" required></label>
+            <label><span>End date *</span><input name="importEnd" type="date" [(ngModel)]="draft.endDate" [min]="draft.startDate" required></label>
+            <label class="wide"><span>Description</span><textarea name="importDescription" rows="2" [(ngModel)]="draft.description"></textarea></label>
+            <label class="wide"><span>Tags</span><input name="importTags" [(ngModel)]="tagsText"></label>
+          </div>
+        </section>
+
+        <div class="review-columns">
+          <section class="review-section">
+            <div class="review-heading"><div><b>Suggested places</b><small>เลือกเฉพาะรายการที่ต้องการเพิ่ม</small></div><span>{{ draft.places.length }}</span></div>
+            @if (!draft.places.length) {<p class="no-detection">ไม่พบชื่อสถานที่ที่ชัดเจน สามารถเพิ่มภายหลังได้</p>}
+            <div class="suggestion-list">@for (place of draft.places; track place.id; let index = $index) {<label [class.disabled]="!place.selected"><input type="checkbox" [name]="'placeSelected' + index" [(ngModel)]="place.selected"><span><input [name]="'placeName' + index" [(ngModel)]="place.name"><small>{{ place.evidence }}</small></span></label>}</div>
+          </section>
+          <section class="review-section">
+            <div class="review-heading"><div><b>Detected expenses</b><small>ยอดเงินและประเภทจาก OCR</small></div><span>{{ draft.expenses.length }}</span></div>
+            @if (!draft.expenses.length) {<p class="no-detection">ไม่พบยอดเงินพร้อมสกุลเงินที่ชัดเจน</p>}
+            <div class="suggestion-list expenses">@for (expense of draft.expenses; track expense.id; let index = $index) {<label [class.disabled]="!expense.selected"><input type="checkbox" [name]="'expenseSelected' + index" [(ngModel)]="expense.selected"><span><select [name]="'expenseType' + index" [(ngModel)]="expense.type"><option>Transport</option><option>Hotel</option><option>Restaurant</option><option>Ticket</option><option>Shopping</option><option>Other</option></select><small>{{ expense.note }}</small></span><strong>{{ expense.amount | number:'1.0-2' }} {{ expense.currency }}</strong></label>}</div>
+          </section>
+        </div>
+
+        <section class="review-section raw-text">
+          <details><summary><span><b>OCR text from {{ scans().length }} images</b><small>เปิดดูหรือแก้ไขข้อความที่จะเก็บใน Notes</small></span><em>View text</em></summary><textarea name="ocrNotes" rows="12" [(ngModel)]="draft.notes"></textarea><div class="scan-quality">@for (scan of scans(); track scan.fileName) {<span>{{ scan.fileName }} <b>{{ scan.confidence }}%</b></span>}</div></details>
+        </section>
+        <footer><button class="button ghost" type="button" (click)="backToSelect()">← Change photos</button><div><small>{{ photos().length }} photos will be saved to img/travel-photos</small><button class="button primary" type="submit" [disabled]="reviewForm.invalid">Create journey from photos →</button></div></footer>
+      </form>
+    }
+
+    @if (phase() === 'saving') {<div class="processing"><div class="orb"><span>⇩</span></div><h3>Saving your new memory</h3><p>กำลังบันทึกรูปต้นฉบับ {{ photos().length }} รูปลงใน img/travel-photos</p></div>}
+    @if (phase() === 'error') {<div class="error-state"><span>!</span><h3>Import could not finish</h3><p>{{ error() }}</p><button class="button secondary" type="button" (click)="backToSelect()">Try again</button></div>}
+  </section>
+</div>

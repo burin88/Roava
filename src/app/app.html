@@ -1,0 +1,18 @@
+<header class="app-header navbar navbar-expand border-bottom sticky-top">
+  <a class="navbar-brand brand d-flex align-items-center gap-2" routerLink="/continent/AS">
+    <span class="brand-mark">A</span>
+    <span class="d-grid lh-1"><strong>ATLAS</strong><small>Personal travel memory</small></span>
+  </a>
+  <nav class="navbar-nav flex-row gap-3 ms-4">
+    <a class="nav-link" routerLink="/continent/AS" [class.active]="router.url.startsWith('/continent/')">World Atlas</a>
+    <a class="nav-link" routerLink="/trips" routerLinkActive="active">Journeys</a>
+  </nav>
+  <div class="ms-auto d-flex align-items-center gap-3">
+    <div class="btn-group btn-group-sm theme-toggle" role="group" aria-label="Choose theme">
+      <button type="button" class="btn" [class.btn-success]="theme() === 'dark'" [class.btn-outline-secondary]="theme() !== 'dark'" (click)="setTheme('dark')">Dark</button>
+      <button type="button" class="btn" [class.btn-success]="theme() === 'light'" [class.btn-outline-secondary]="theme() !== 'light'" (click)="setTheme('light')">Light</button>
+    </div>
+    <span class="profile"><span class="profile-dot"></span> My Atlas</span>
+  </div>
+</header>
+<main><router-outlet /></main>

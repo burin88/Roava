@@ -1,0 +1,160 @@
+<div class="city-shell">
+  <a class="breadcrumb" [routerLink]="['/continent', continent().code]">MY {{ continent().name | uppercase }} <span>›</span> {{ country()?.name | uppercase }} <span>›</span> {{ currentCityName() | uppercase }}</a>
+  <header class="city-hero">
+    <div><span class="location-pin">⌖</span><div><small><img class="inline-flag" [src]="flagIconPath(countryCode())" [alt]="(country()?.name || countryCode()) + ' flag'" loading="lazy">{{ country()?.name | uppercase }}</small><h1>{{ currentCityName() }}</h1><p>Your journeys, places and moments — kept together.</p></div></div>
+    <!-- <div class="city-actions"><button class="button secondary" (click)="photoImporterOpen.set(true)">✦ Import photos</button><button class="button primary" (click)="openTripEditor()">＋ Add journey here</button></div> -->
+  </header>
+  <section class="city-stats">
+    <div><strong>{{ cityStats().trips }}</strong><span>Journeys</span></div><div><strong>{{ cityStats().days }}</strong><span>Travel days</span></div><div><strong>{{ cityStats().places }}</strong><span>Places</span></div><div><strong>{{ cityStats().photos }}</strong><span>Photos</span></div><div><strong>{{ cityStats().expenses | number:'1.0-0' }}</strong><span>THB spent</span></div>
+  </section> 
+
+  @if (!trips().length) {
+    <section class="empty-memory"><span>◇</span><h2>No memories here yet</h2><p>Create a journey to highlight {{ currentCityName() }} on your atlas.</p><button class="button primary" (click)="openTripEditor()">Start this memory</button></section>
+  } @else {
+    <section class="memory-layout">
+      <aside class="trip-rail"><span class="section-label">JOURNEYS</span>@for (trip of trips(); track trip.id) {<button [class.active]="selectedTrip()?.id === trip.id" (click)="selectTrip(trip)"><span>{{ trip.startDate | date:'MMM' | uppercase }}<b>{{ trip.startDate | date:'dd' }}</b></span><div><strong>{{ trip.name }}</strong><small>{{ days(trip) }} days · {{ trip.places.length }} places</small></div></button>}</aside>
+      @if (selectedTrip(); as trip) {
+        <main class="trip-memory">
+          <section class="trip-title"><div><small>{{ trip.startDate | date:'d MMM y' }} — {{ trip.endDate | date:'d MMM y' }}</small><h2>{{ trip.name }}</h2><p>{{ trip.description || 'A chapter in your travel story.' }}</p><div class="tags">@for (tag of trip.tags; track tag) {<span>#{{ tag }}</span>}</div></div><div class="trip-actions"><button class="button secondary" (click)="openTripEditor(trip)">Edit</button><button class="more" (click)="deleteTrip(trip)">Delete</button></div></section>
+
+          <section class="summary-card"><div class="summary-icon">✦</div><div><span class="section-label">GENERATED MEMORY · LOCAL</span><h3>{{ summaries.generateTripSummary(trip).title }}</h3>@for (line of summaries.generateTripSummary(trip).lines; track line) {<p>{{ line }}</p>}</div></section>
+
+          <section class="memory-section">
+            <div class="section-head"><div><span class="section-label">JOURNEY</span><h3>Places & timeline</h3></div><button class="button secondary" (click)="openPlace()">＋ Add place</button></div>
+            @if (!trip.places.length) {<div class="small-empty">Add the first place to begin your journey line.</div>} @else {
+              <div class="place-day-groups">
+                @for (group of placeDayGroups(trip); track group.date) {
+                  <section class="place-day-card" [class.collapsed]="isPlaceDayCollapsed(group.date)">
+                    <button type="button" class="place-day-header" (click)="togglePlaceDay(group.date)" [attr.aria-expanded]="!isPlaceDayCollapsed(group.date)">
+                      <span class="day-calendar"><b>{{ group.date ? (group.date | date:'dd') : '—' }}</b><small>{{ group.date ? (group.date | date:'MMM' | uppercase) : 'DATE' }}</small></span>
+                      <span class="day-heading"><small>TRAVEL DAY</small><strong>{{ group.date ? (group.date | date:'EEEE, d MMMM y') : 'No date specified' }}</strong><em>{{ group.places.length }} {{ group.places.length === 1 ? 'place' : 'places' }}</em></span>
+                      <span class="day-chevron">⌄</span>
+                    </button>
+                    @if (!isPlaceDayCollapsed(group.date)) {
+                      <div class="timeline day-timeline">
+                        @for (place of group.places; track place.id) {
+                          <article><div class="timeline-dot"><span>{{ placeNumber(trip, place) }}</span></div><div class="place-date">{{ place.time || 'Memory' }}</div><div class="place-copy"><h4>{{ place.name }}</h4><p>{{ place.note || place.description || 'No note yet.' }}</p><span>@if(place.rating){★ {{ place.rating }}/5} @if(place.latitude || place.longitude){ · {{ place.latitude | number:'1.2-2' }}, {{ place.longitude | number:'1.2-2' }}}</span>@if (journeyPhotoPreview(place).length) {<button type="button" class="journey-photo-strip" (click)="openPlaceGallery(place)" [attr.aria-label]="'View all photos from ' + place.name">@for (photo of journeyPhotoPreview(place); track photo.id; let photoIndex = $index) {<span class="journey-photo"><img [src]="photo.url" [alt]="photo.name" loading="lazy">@if (photoIndex === 3 && remainingPlacePhotos(place)) {<b>+ {{ remainingPlacePhotos(place) }} รูปภาพ</b>}</span>}</button>}</div><div class="row-actions"><button (click)="openPlace(place)">Edit</button><button (click)="deletePlace(place)">×</button></div></article>
+                        }
+                      </div>
+                    }
+                  </section>
+                }
+              </div>
+            }
+          </section>
+
+          <div class="two-column">
+            <section class="memory-section">
+              <div class="section-head"><div><span class="section-label">EXPENSES</span><h3>{{ tripExpense(trip) | number:'1.0-0' }} THB</h3></div><button class="button secondary" (click)="openExpense()">＋ Add</button></div>
+              <div class="expense-list">@for (expense of trip.expenses; track expense.id) {<article><span class="expense-icon">{{ expense.type === 'Transport' ? '↗' : expense.type === 'Hotel' ? '⌂' : expense.type === 'Restaurant' ? '♨' : '◇' }}</span><div><b>{{ expense.type }}</b><small>{{ expense.note || expense.spentAt }}</small></div><strong>{{ expense.amount | number:'1.0-0' }} {{ expense.currency }}</strong><button (click)="openExpense(expense)">Edit</button><button (click)="deleteExpense(expense)">×</button></article>} @empty {<div class="small-empty">No expenses recorded.</div>}</div>
+            </section>
+            <section class="memory-section notes"><span class="section-label">NOTES & DETAILS</span><h3>Things worth remembering</h3><p>{{ trip.notes || 'No notes yet. Edit this journey to write down what made it special.' }}</p><dl>@if(trip.transport){<div><dt>Transport</dt><dd>{{ trip.transport }}</dd></div>}@if(trip.hotel){<div><dt>Stayed at</dt><dd>{{ trip.hotel }}</dd></div>}@if(trip.restaurant){<div><dt>Favorite meal</dt><dd>{{ trip.restaurant }}</dd></div>}@if(trip.route){<div><dt>Route</dt><dd>{{ trip.route }}</dd></div>}</dl>
+            </section>
+          </div>
+
+          <section class="memory-section">
+            <div class="section-head"><div><span class="section-label">PHOTO MEMORY</span><h3>Your gallery</h3></div><label class="button secondary" [class.disabled]="photoBusy()">{{ photoBusy() ? 'Saving…' : '＋ Upload photos' }}<input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,image/bmp" [disabled]="photoBusy()" (change)="uploadPhotos($event)"></label></div>
+            @if (photoError()) {<div class="photo-error">! {{ photoError() }} <small>Start the app with <b>npm start</b> so the media server can write to img/travel-photos.</small></div>}
+            @if (!photoViews().length) {<label class="photo-empty" [class.disabled]="photoBusy()"><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,image/bmp" [disabled]="photoBusy()" (change)="uploadPhotos($event)"><span>▧</span><b>{{ photoBusy() ? 'Saving photos…' : 'Drop into your visual memory' }}</b><small>Original images are saved in the project at img/travel-photos.</small></label>} @else {<div class="gallery">@for (photo of photoViews(); track photo.id) {<figure><img [src]="photo.url" [alt]="photo.name" loading="lazy"><figcaption><span title="{{ photo.name }}">{{ photo.name }}</span><button type="button" [disabled]="photoBusy()" (click)="deletePhoto(photo)" [attr.aria-label]="'Delete ' + photo.name">×</button></figcaption></figure>}</div>}
+          </section>
+        </main>
+      }
+    </section>
+  }
+</div>
+
+@if (editorOpen()) {<trip-editor [trip]="editingTrip()" [countries]="continentCountries()" [presetCountryCode]="countryCode()" [presetCityCode]="cityCode()" (saved)="saveTrip($event)" (cancelled)="editorOpen.set(false)" />}
+@if (photoImporterOpen()) {<photo-importer [countries]="continentCountries()" [presetCountryCode]="countryCode()" [presetCityCode]="cityCode()" (created)="smartImportCreated($event)" (cancelled)="photoImporterOpen.set(false)" />}
+@if (placeGallery(); as galleryPlace) {
+  <div class="modal-backdrop gallery-backdrop" (click)="placeGallery.set(null)">
+    <section class="place-gallery-modal" (click)="$event.stopPropagation()" role="dialog" aria-modal="true" [attr.aria-label]="'Photos from ' + galleryPlace.name">
+      <header><div><span class="section-label">PLACE PHOTOS</span><h2>{{ galleryPlace.name }}</h2><small>{{ photosForPlace(galleryPlace).length }} รูปภาพ</small></div><button type="button" (click)="placeGallery.set(null)" aria-label="Close gallery">×</button></header>
+      <div class="place-gallery-all">@for (photo of photosForPlace(galleryPlace); track photo.id) {<figure><img [src]="photo.url" [alt]="photo.name"><figcaption>{{ photo.name }}</figcaption></figure>}</div>
+    </section>
+  </div>
+}
+@if (placeEditorOpen()) {
+  <div class="modal-backdrop" (click)="closePlaceEditor()">
+    <form class="mini-modal place-modal" (click)="$event.stopPropagation()" (ngSubmit)="savePlace()">
+      <header>
+        <div><span class="section-label">PLACE MEMORY</span><h2>{{ placeModel.name || 'Add a place' }}</h2></div>
+        <button type="button" (click)="closePlaceEditor()">×</button>
+      </header>
+
+      <label><span>Name *</span><input class="place-dark-text" name="placeName" [(ngModel)]="placeModel.name" placeholder="e.g. Senso-ji Temple" required></label>
+      <div class="form-row">
+        <label><span>Date</span><input class="place-dark-text" name="placeDate" type="date" [(ngModel)]="placeModel.visitedAt"></label>
+        <label class="place-time-field"><span>Time</span>
+          <div class="time-format-toggle" role="group" aria-label="Time format"><button type="button" [class.active]="placeTimeFormat === '24h'" (click)="setPlaceTimeFormat('24h')">24 H</button><button type="button" [class.active]="placeTimeFormat === '12h'" (click)="setPlaceTimeFormat('12h')">AM / PM</button></div>
+          @if (placeTimeFormat === '24h') {<div class="time-24-input"><input class="place-dark-text" name="placeHour24" type="number" inputmode="numeric" min="0" max="23" [(ngModel)]="placeHour24" (ngModelChange)="update24HourTime()" aria-label="Hour from 0 to 23"><span>:</span><input class="place-dark-text" name="placeMinute24" type="number" inputmode="numeric" min="0" max="59" [(ngModel)]="placeMinute24" (ngModelChange)="update24HourTime()" aria-label="Minute from 0 to 59"><b [class.pm]="inferredMeridiem() === 'PM'">{{ inferredMeridiem() }}</b></div><small class="time-help">กรอกชั่วโมงได้ตั้งแต่ 00–23 · เวลา 13–23 จะเป็น PM อัตโนมัติ</small>}
+          @else {<div class="time-12-input"><select class="place-dark-text" name="placeHour12" [(ngModel)]="placeHour12" (ngModelChange)="update12HourTime()">@for (hour of ['01','02','03','04','05','06','07','08','09','10','11','12']; track hour) {<option [value]="hour">{{ hour }}</option>}</select><span>:</span><select class="place-dark-text" name="placeMinute12" [(ngModel)]="placeMinute12" (ngModelChange)="update12HourTime()">@for (minute of ['00','05','10','15','20','25','30','35','40','45','50','55']; track minute) {<option [value]="minute">{{ minute }}</option>}</select><select class="place-dark-text meridiem" name="placeMeridiem" [(ngModel)]="placeMeridiem" (ngModelChange)="update12HourTime()"><option value="AM">AM</option><option value="PM">PM</option></select></div>}
+        </label>
+      </div>
+      <label><span>Memory note</span><textarea class="place-dark-text" name="placeNote" rows="4" [(ngModel)]="placeModel.note" placeholder="What made this place memorable?"></textarea></label>
+
+      <div class="place-photo-field">
+        <div class="place-photo-head"><span>Photos</span><label class="place-photo-add" [class.disabled]="placePhotoBusy">＋ Attach photos<input type="file" multiple accept="image/*" [disabled]="placePhotoBusy" (change)="addPlacePhotos($event)"></label></div>
+        @if (placePhotoError) {<p class="place-photo-error">{{ placePhotoError }}</p>}
+        @if (!placeExistingPhotos.length && !placePendingPhotos.length) {<label class="place-photo-empty"><input type="file" multiple accept="image/*" [disabled]="placePhotoBusy" (change)="addPlacePhotos($event)"><span>▧</span><b>Add photos to this memory</b><small>You can select multiple images</small></label>}
+        @else {<div class="place-photo-grid">@for (photo of placeExistingPhotos; track photo.id) {<figure><img [src]="photo.url" [alt]="photo.name"><button type="button" (click)="removeExistingPlacePhoto(photo)" [attr.aria-label]="'Remove ' + photo.name">×</button></figure>} @for (photo of placePendingPhotos; track photo.url) {<figure class="pending"><img [src]="photo.url" [alt]="photo.file.name"><span>NEW</span><button type="button" (click)="removePendingPlacePhoto(photo)" [attr.aria-label]="'Remove ' + photo.file.name">×</button></figure>}</div>}
+      </div>
+
+      <fieldset class="place-rating">
+        <legend>Rating</legend>
+        <div role="radiogroup" aria-label="Place rating from 1 to 5 stars">
+          @for (value of placeRatingValues; track value) {
+            <button type="button" role="radio" [attr.aria-checked]="placeModel.rating === value" [class.active]="(placeModel.rating || 0) >= value" (click)="setPlaceRating(value)" [attr.aria-label]="value + (value === 1 ? ' star' : ' stars')">★</button>
+          }
+          <span>{{ placeModel.rating ? placeModel.rating + ' / 5' : 'Not rated' }}</span>
+        </div>
+      </fieldset>
+
+      <footer><button type="button" class="button ghost" (click)="closePlaceEditor()">Cancel</button><button class="button primary" [disabled]="placePhotoBusy">{{ placePhotoBusy ? 'Saving…' : 'Save place' }}</button></footer>
+    </form>
+  </div>
+}
+@if (expenseEditorOpen()) {
+  <div class="modal-backdrop" (click)="expenseEditorOpen.set(false)">
+    <form class="mini-modal expense-modal" (click)="$event.stopPropagation()" (ngSubmit)="saveExpense()">
+      <header>
+        <div><span class="section-label">EXPENSE</span><h2>Add the cost</h2></div>
+        <button type="button" (click)="expenseEditorOpen.set(false)">×</button>
+      </header>
+
+      <label class="expense-category">
+        <span>Category</span>
+        <button class="expense-category-trigger" type="button" (click)="expenseCategoryOpen.update(open => !open)" aria-haspopup="listbox" [attr.aria-expanded]="expenseCategoryOpen()">
+          <i>{{ expenseTypeIcon(expenseModel.type) }}</i>
+          <b>{{ expenseModel.type }}</b>
+          <em>⌄</em>
+        </button>
+        @if (expenseCategoryOpen()) {
+          <div class="expense-category-menu">
+            <div class="expense-category-search">
+              <i>⌕</i>
+              <input name="expenseCategorySearch" [ngModel]="expenseCategoryQuery()" (ngModelChange)="expenseCategoryQuery.set($event)" (focus)="expenseCategoryOpen.set(true)" (blur)="closeExpenseCategorySoon()" placeholder="Search category" autocomplete="off">
+            </div>
+            <div class="expense-category-options" role="listbox">
+              @for (type of filteredExpenseTypes(); track type) {
+                <button type="button" role="option" [attr.aria-selected]="expenseModel.type === type" [class.selected]="expenseModel.type === type" (mousedown)="$event.preventDefault()" (click)="selectExpenseType(type)">
+                  <i>{{ expenseTypeIcon(type) }}</i><span>{{ type }}</span><b>{{ expenseModel.type === type ? '✓' : '' }}</b>
+                </button>
+              } @empty {
+                <p>No category found</p>
+              }
+            </div>
+          </div>
+        }
+      </label>
+
+      <div class="form-row">
+        <label><span>Amount *</span><input class="expense-dark-text" name="amount" type="number" min="0" step="0.01" [(ngModel)]="expenseModel.amount" required></label>
+        <label><span>Currency</span><input class="expense-dark-text currency-input" name="currency" [(ngModel)]="expenseModel.currency" placeholder="e.g. THB, JPY, USD" maxlength="3" autocomplete="off"></label>
+      </div>
+      <label><span>Date</span><input class="expense-dark-text" name="spentAt" type="date" [(ngModel)]="expenseModel.spentAt"></label>
+      <label><span>Note</span><textarea class="expense-dark-text" name="expenseNote" rows="4" [(ngModel)]="expenseModel.note" placeholder="What was this for?"></textarea></label>
+      <footer><button type="button" class="button ghost" (click)="expenseEditorOpen.set(false)">Cancel</button><button class="button primary">Save expense</button></footer>
+    </form>
+  </div>
+}
+@if (toast()) {<div class="toast">✓ {{ toast() }}</div>}
