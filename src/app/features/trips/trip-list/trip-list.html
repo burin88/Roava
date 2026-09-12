@@ -1,14 +1,14 @@
 <div class="journeys-shell">
-  <header>
+  <header data-tour="journey-archive">
     <div>
       <span>YOUR TRAVEL ARCHIVE</span>
       <h1>Journeys</h1>
       <p>All the chapters that color your map.</p>
     </div>
-    <button class="button primary" (click)="open(null)">＋ Add journey</button>
+    <button class="button primary" data-tour="add-journey" (click)="open(null)">＋ Add journey</button>
   </header>
 
-  <section class="journey-intelligence">
+  <section class="journey-intelligence" data-tour="journey-intelligence">
     <article class="archive-summary">
       <div class="summary-label"><i></i> AI TRAVEL SUMMARY <span>LIVE</span></div>
       <h2>{{ archiveSummary().headline }}</h2>
@@ -24,7 +24,7 @@
     <world-globe [visitedCountries]="visitedCountryCodes()" />
   </section>
 
-  <div class="toolbar">
+  <div class="toolbar" data-tour="journey-search">
     <label>⌕<input [ngModel]="query()" (ngModelChange)="query.set($event)" placeholder="Search city, country or tag"></label>
     <span>{{ filtered().length }} journey{{ filtered().length === 1 ? '' : 's' }}</span>
   </div>

@@ -23,8 +23,8 @@ export class OnboardingTourService {
     this.tour?.destroy();
 
     try {
-      await this.router.navigate(['/continent', 'AS']);
-      const pageReady = await this.waitForElement('[data-tour="continent-switcher"]');
+      await this.router.navigate(['/trips']);
+      const pageReady = await this.waitForElement('[data-tour="journey-archive"]');
       if (!pageReady) return;
 
       this.tour = driver({
@@ -63,68 +63,59 @@ export class OnboardingTourService {
       {
         popover: {
           title: 'ยินดีต้อนรับสู่ Atlas',
-          description: 'มาสร้างแผนที่ความทรงจำจากทุกประเทศ เมือง และการเดินทางของคุณไปทีละขั้นกัน',
+          description: 'มาสร้างคลังความทรงจำจากทุกประเทศ เมือง และการเดินทางของคุณไปทีละขั้นกัน',
         },
       },
       {
         element: '[data-tour="brand"]',
         popover: {
-          title: 'ศูนย์กลางความทรงจำของคุณ',
-          description: 'กดโลโก้ <strong>ATLAS</strong> เมื่อใดก็ได้เพื่อกลับมาดูแผนที่โลกและภาพรวมการเดินทาง',
+          title: 'กลับสู่คลังการเดินทาง',
+          description: 'กดโลโก้ <strong>ATLAS</strong> เมื่อใดก็ได้เพื่อกลับมาหน้า Journeys ซึ่งเป็นหน้าแรกของคุณ',
           side: 'bottom',
           align: 'start',
         },
       },
       {
-        element: '[data-tour="continent-switcher"]',
+        element: '[data-tour="journey-archive"]',
         popover: {
-          title: '1. เลือกทวีป',
-          description: 'เริ่มจากเลือกทวีปที่ต้องการสำรวจ รายการสถิติและแผนที่จะเปลี่ยนตามพื้นที่ที่เลือก',
+          title: '1. คลังการเดินทางของคุณ',
+          description: 'หน้า Journeys รวบรวมทุกทริปไว้ในที่เดียว พร้อมสรุปเรื่องราวจากข้อมูลที่คุณบันทึก',
           side: 'bottom',
-          align: 'center',
-        },
-      },
-      {
-        element: '[data-tour="country-search"]',
-        popover: {
-          title: '2. ค้นหาประเทศ',
-          description: 'พิมพ์ชื่อประเทศในช่อง <strong>Search country…</strong> หรือเลือกประเทศจากแผนที่ได้โดยตรง',
-          side: 'left',
           align: 'start',
-        },
-      },
-      {
-        element: '[data-tour="world-map"]',
-        popover: {
-          title: '3. สำรวจประเทศและเมือง',
-          description: 'ลากและซูมแผนที่เพื่อสำรวจ เมื่อเลือกประเทศแล้วให้กดหมุดเมืองเพื่อเปิดหน้าความทรงจำของเมืองนั้น',
-          side: 'top',
-          align: 'center',
         },
       },
       {
         element: '[data-tour="add-journey"]',
         popover: {
-          title: '4. เพิ่มการเดินทาง',
-          description: 'กด <strong>+ Add journey</strong> แล้วระบุชื่อทริป ประเทศ เมือง วันที่ รายละเอียด และแท็ก ประเทศนั้นจะสว่างขึ้นบนแผนที่',
+          title: '2. เพิ่มการเดินทางครั้งแรก',
+          description: 'กด <strong>+ Add journey</strong> แล้วระบุชื่อทริป ประเทศ เมือง วันที่ รายละเอียด และแท็ก',
           side: 'bottom',
           align: 'end',
         },
       },
       {
-        element: '[data-tour="local-backup"]',
+        element: '[data-tour="journey-intelligence"]',
         popover: {
-          title: '5. สำรองข้อมูลของคุณ',
-          description: 'ข้อมูลเก็บอยู่ในเบราว์เซอร์เครื่องนี้ ใช้ <strong>Export data</strong> สำรองไฟล์ และ <strong>Import data</strong> เพื่อนำกลับมาใช้ภายหลัง',
+          title: '3. ดูภาพรวมการเดินทาง',
+          description: 'ส่วนนี้สรุปเรื่องราวจากทริปทั้งหมด และแสดงประเทศที่เคยไปบนลูกโลกแบบโต้ตอบ ลากเพื่อหมุนและเลื่อนเพื่อซูมได้',
           side: 'top',
-          align: 'end',
+          align: 'center',
         },
       },
       {
-        element: '[data-tour="journeys-link"]',
+        element: '[data-tour="journey-search"]',
+        popover: {
+          title: '4. ค้นหาทริปได้ทันที',
+          description: 'ค้นหาด้วยชื่อเมือง ประเทศ หรือแท็ก แล้วเปิดการ์ดทริปเพื่อดูความทรงจำ แก้ไข หรือลบข้อมูล',
+          side: 'top',
+          align: 'center',
+        },
+      },
+      {
+        element: '[data-tour="world-atlas-link"]',
         popover: {
           title: 'พร้อมแล้ว!',
-          description: 'เปิดหน้า <strong>Journeys</strong> เพื่อค้นหา ดู แก้ไข หรือลบทริปทั้งหมด คุณกลับมาเปิดคำแนะนำนี้ซ้ำได้จากปุ่ม <strong>วิธีใช้</strong>',
+          description: 'เปิด <strong>World Atlas</strong> เพื่อสำรวจประเทศและเมือง ดูสถิติ และสำรองข้อมูล คุณกลับมาเปิดคำแนะนำนี้ซ้ำได้จากปุ่ม <strong>วิธีใช้</strong>',
           side: 'bottom',
           align: 'center',
         },
