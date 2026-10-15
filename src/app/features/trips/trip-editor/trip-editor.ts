@@ -3,11 +3,15 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { COUNTRY_CATALOG, CountryOption } from '../../../core/data/asia-catalog';
 import { Trip } from '../../../core/models/travel.models';
+import { CHINA_PROVINCES, chinaProvinceByCode, primaryProvinceForTrip, provinceForCity } from '../../../core/data/china-provinces';
 
 @Component({ selector: 'trip-editor', standalone: true, imports: [FormsModule, CommonModule], templateUrl: './trip-editor.html', styleUrl: './trip-editor.css' })
 export class TripEditor implements OnChanges {
   @Input() trip: Trip | null = null; @Output() saved = new EventEmitter<Trip>(); @Output() cancelled = new EventEmitter<void>();
   @Input() presetCountryCode = ''; @Input() presetCityCode = '';
+  @Input() presetProvinceCode = '';
+  readonly chinaProvinces = CHINA_PROVINCES;
+  private provinceChosenManually = false;
   @Input() countries: readonly CountryOption[] = COUNTRY_CATALOG; model!: Trip; selectedCountry!: CountryOption;
   countryQuery = ''; countryMenuOpen = false; cityText = ''; readonly ratingValues = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
   ngOnChanges(): void {
@@ -16,6 +20,10 @@ export class TripEditor implements OnChanges {
     this.model = this.trip ? structuredClone(this.trip) : { id: crypto.randomUUID(), name: '', countryCode: presetCountry.code, cityCode: presetCountry.cities.some((city) => city.code === this.presetCityCode) ? this.presetCityCode : presetCountry.cities[0].code, startDate: today, endDate: today, description: '', notes: '', transport: '', hotel: '', restaurant: '', ticket: '', route: '', rating: 0, tags: [], places: [], expenses: [], mediaIds: [], createdAt: now, updatedAt: now };
     this.selectedCountry = this.countries.find((country) => country.code === this.model.countryCode) ?? first;
     this.cityText = this.selectedCountry.cities.find((city) => city.code === this.model.cityCode)?.name ?? this.model.cityName ?? this.model.cityCode.replace(/_/g, ' ');
+    if (this.model.countryCode === 'CN') {
+      this.model.provinceCode = primaryProvinceForTrip(this.model) ?? chinaProvinceByCode(this.presetProvinceCode)?.code;
+    }
+    this.provinceChosenManually = !!(this.trip?.provinceCode || this.presetProvinceCode);
     this.countryQuery = ''; this.countryMenuOpen = false;
   }
   filteredCountries(): readonly CountryOption[] {
@@ -28,18 +36,42 @@ export class TripEditor implements OnChanges {
     this.selectedCountry = country; this.model.countryCode = country.code; this.countryMenuOpen = false; this.countryQuery = '';
     const stillValid = country.cities.some((city) => city.name.toLowerCase() === this.cityText.trim().toLowerCase() || city.code === this.model.cityCode);
     if (!stillValid) this.cityText = country.cities[0]?.name ?? '';
+    this.model.provinceCode = country.code === 'CN' ? provinceForCity(this.cityText) : undefined;
+    this.provinceChosenManually = false;
+  }
+  updateCityProvince(): void {
+    if (this.model.countryCode === 'CN') {
+      const inferred = provinceForCity(this.cityText);
+      if (inferred) {
+        this.model.provinceCode = inferred;
+        this.provinceChosenManually = false;
+      } else if (!this.provinceChosenManually) {
+        this.model.provinceCode = undefined;
+      }
+    }
+  }
+  selectProvince(): void {
+    const province = chinaProvinceByCode(this.model.provinceCode);
+    this.provinceChosenManually = !!province;
+    const currentCityProvince = provinceForCity(this.cityText);
+    if (province && currentCityProvince && currentCityProvince !== province.code) {
+      this.cityText = province.capital;
+    }
   }
   ratingPercent(value: number): number { return Math.max(0, Math.min(100, (value / 5) * 100)); }
   private cityCodeFromText(): string {
     const cityName = this.cityText.trim();
     const matched = this.selectedCountry.cities.find((city) => city.name.toLowerCase() === cityName.toLowerCase() || city.code.toLowerCase() === cityName.toLowerCase());
     if (matched) return matched.code;
-    return cityName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || this.selectedCountry.cities[0]?.code || 'CITY';
+    return cityName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^\p{L}\p{M}\p{N}]+/gu, '_').replace(/^_+|_+$/g, '') || this.selectedCountry.cities[0]?.code || 'CITY';
   }
   submit(): void {
     const cityName = this.cityText.trim();
     this.model.cityCode = this.cityCodeFromText();
     this.model.cityName = this.selectedCountry.cities.find((city) => city.code === this.model.cityCode)?.name ?? cityName;
+    this.model.provinceCode = this.model.countryCode === 'CN'
+      ? chinaProvinceByCode(this.model.provinceCode)?.code ?? provinceForCity(this.model.cityCode) ?? provinceForCity(cityName)
+      : undefined;
     this.model.tags = this.tagsText.split(',').map((tag) => tag.trim()).filter(Boolean); this.saved.emit(this.model);
   }
   get tagsText(): string { return this.model.tags.join(', '); } set tagsText(value: string) { this.model.tags = value.split(',').map((tag) => tag.trim()).filter(Boolean); }

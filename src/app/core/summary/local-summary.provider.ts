@@ -33,7 +33,7 @@ export class LocalSummaryProvider implements SummaryProvider {
     const continents = new Set(
       [...countries].map((code) => countryByCode(code)?.continentCode).filter((code): code is NonNullable<typeof code> => Boolean(code)),
     );
-    const days = trips.reduce((sum, trip) => sum + this.tripDays(trip), 0);
+    const days = countTravelDays(trips);
     const places = trips.reduce((sum, trip) => sum + trip.places.length, 0);
     const photos = trips.reduce((sum, trip) => sum + trip.mediaIds.length, 0);
     const latest = [...trips].sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
@@ -64,3 +64,4 @@ export class LocalSummaryProvider implements SummaryProvider {
     return Number.isFinite(start) && Number.isFinite(end) ? Math.max(1, Math.round((end - start) / 86400000) + 1) : 1;
   }
 }
+import { countTravelDays } from '../models/travel-days';

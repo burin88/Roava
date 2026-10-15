@@ -1,4 +1,5 @@
 import { GENERATED_COUNTRY_ROWS } from './world-countries.generated';
+import { CHINA_PROVINCES } from './china-provinces';
 
 export interface CityOption { code: string; name: string; coordinates: [number, number]; }
 export type ContinentCode = 'AF' | 'AN' | 'AS' | 'EU' | 'NA' | 'OC' | 'SA';
@@ -38,6 +39,7 @@ export const ASIA_COUNTRIES: CountryOption[] = [
   ['SA','Saudi Arabia','🇸🇦','RIYADH','Riyadh',46.6753,24.7136], ['SG','Singapore','🇸🇬','SINGAPORE','Singapore',103.8198,1.3521],
   ['KR','South Korea','🇰🇷','SEOUL','Seoul',126.978,37.5665], ['LK','Sri Lanka','🇱🇰','COLOMBO','Colombo',79.8612,6.9271],
   ['SY','Syria','🇸🇾','DAMASCUS','Damascus',36.2765,33.5138],
+  ['TW','Taiwan','🇹🇼','TAIPEI','Taipei',121.5654,25.0330],
   ['TJ','Tajikistan','🇹🇯','DUSHANBE','Dushanbe',68.787,38.5598], ['TH','Thailand','🇹🇭','BANGKOK','Bangkok',100.5018,13.7563],
   ['TL','Timor-Leste','🇹🇱','DILI','Dili',125.5603,-8.5569], ['TR','Türkiye','🇹🇷','ISTANBUL','Istanbul',28.9784,41.0082],
   ['TM','Turkmenistan','🇹🇲','ASHGABAT','Ashgabat',58.3261,37.9601], ['AE','United Arab Emirates','🇦🇪','DUBAI','Dubai',55.2708,25.2048],
@@ -55,6 +57,12 @@ const extras: Record<string, CityOption[]> = {
   VN: [{ code:'HO_CHI_MINH',name:'Ho Chi Minh City',coordinates:[106.6297,10.8231] }], AE: [{ code:'ABU_DHABI',name:'Abu Dhabi',coordinates:[54.3773,24.4539] }],
 };
 for (const country of ASIA_COUNTRIES) country.cities.push(...(extras[country.code] ?? []));
+const china = ASIA_COUNTRIES.find(country => country.code === 'CN')!;
+for (const province of CHINA_PROVINCES) {
+  if (!china.cities.some(city => city.code === province.capitalCode)) {
+    china.cities.push({ code: province.capitalCode, name: province.capital, coordinates: province.coordinates });
+  }
+}
 
 const OTHER_COUNTRIES: CountryOption[] = GENERATED_COUNTRY_ROWS.map((row) => ({
   code: row.code,

@@ -36,3 +36,4 @@
 .journey-modal footer{display:flex;justify-content:flex-end;gap:10px;padding-top:10px}
 @keyframes globe-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
 @media(max-width:620px){.journey-modal-backdrop{padding:10px}.journey-modal form{grid-template-columns:1fr;padding:12px 20px 24px}.journey-modal header{padding:24px 20px 12px}.wide{grid-column:auto}.editor-title{align-items:flex-start}.globe-orb{width:46px;height:46px;font-size:25px}.country-panel{position:fixed;left:20px;right:20px;top:120px}}
+.province-help{font-size:10px;line-height:1.7;letter-spacing:0!important;color:#50695f!important;font-weight:400!important}

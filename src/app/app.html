@@ -4,7 +4,8 @@
     <span class="d-grid lh-1"><strong>ATLAS</strong><small>Personal travel memory</small></span>
   </a>
   <nav class="navbar-nav flex-row gap-3 ms-4">
-    <a class="nav-link" routerLink="/continent/AS" [class.active]="router.url.startsWith('/continent/')" data-tour="world-atlas-link">World Atlas</a>
+    <a class="nav-link" routerLink="/beijing" routerLinkActive="active">Beijing</a>
+    <a class="nav-link" routerLink="/continent/AS" [class.active]="router.url.startsWith('/continent/') || router.url.startsWith('/country/')" data-tour="world-atlas-link">World Atlas</a>
     <a class="nav-link" routerLink="/trips" routerLinkActive="active" data-tour="journeys-link">Journeys</a>
   </nav>
   <div class="ms-auto d-flex align-items-center gap-3">

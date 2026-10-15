@@ -20,7 +20,11 @@ export class App {
       document.documentElement.style.colorScheme = theme;
       localStorage.setItem('atlas-theme', theme);
     });
-    afterNextRender(() => this.onboarding.startIfFirstVisit());
+    afterNextRender(() => {
+      if (window.location.pathname !== '/beijing' && window.location.pathname !== '/') {
+        this.onboarding.startIfFirstVisit();
+      }
+    });
   }
 
   setTheme(theme: 'dark' | 'light'): void { this.theme.set(theme); }

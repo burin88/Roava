@@ -1,16 +1,18 @@
 export interface Place {
-  id: string; name: string; latitude: number; longitude: number; visitedAt: string;
+  id: string; name: string; latitude?: number; longitude?: number; visitedAt: string;
   time?: string; description?: string; note?: string; rating?: number; tags?: string[]; mediaIds?: string[];
 }
 
 export type ExpenseType = 'Transport' | 'Hotel' | 'Restaurant' | 'Ticket' | 'Shopping' | 'Other';
 export interface Expense {
-  id: string; type: ExpenseType; amount: number; currency: string; note?: string; spentAt?: string;
+  id: string; type: ExpenseType; amount: number; currency: string; note?: string; spentAt?: string; mediaIds?: string[];
 }
 
 export interface Trip {
   id: string; name: string; countryCode: string; cityCode: string; startDate: string; endDate: string;
   cityName?: string; description: string; notes: string; transport?: string; hotel?: string; restaurant?: string;
+  provinceCode?: string;
+  journeyGroupId?: string;
   ticket?: string; route?: string; rating?: number; tags: string[]; places: Place[];
   expenses: Expense[]; mediaIds: string[]; createdAt: string; updatedAt: string;
 }

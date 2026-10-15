@@ -30,6 +30,7 @@ yarn-error.log
 .history/*
 
 # Miscellaneous
+/.tmp-expense-check/
 /.angular/cache
 .sass-cache/
 /connect.lock

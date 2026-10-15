@@ -8,7 +8,11 @@
     "build": "node ./node_modules/@angular/cli/bin/ng.js build",
     "watch": "node ./node_modules/@angular/cli/bin/ng.js build --watch --configuration development",
     "test": "node ./node_modules/@angular/cli/bin/ng.js test",
-    "generate:map": "node ./scripts/generate-world-maps.mjs"
+    "generate:map": "node ./scripts/generate-world-maps.mjs",
+    "generate:china-map": "node ./scripts/generate-china-map.mjs",
+    "test:china-map": "node --test ./scripts/test-china-map.mjs",
+    "test:beijing-plan": "node --test ./scripts/test-beijing-plan.mjs",
+    "test:daily-expenses": "node --test ./scripts/test-daily-expenses.mjs"
   },
   "private": true,
   "packageManager": "npm@11.17.0",

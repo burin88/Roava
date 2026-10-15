@@ -1,0 +1,47 @@
+<div class="beijing-page" lang="th">
+  <aside class="saved-plan" aria-live="polite">
+    <div><strong>{{ addingPlan() ? 'กำลังเพิ่มแผนลงในแผนที่จีน…' : planSaved() ? 'บันทึกแผนปักกิ่ง–เทียนจินแล้ว' : 'นำแผน 7 วันนี้ไปเก็บไว้ในคลังทริป' }}</strong><p>2 เมือง · 7 วัน 6 คืน · 29 ต.ค.–4 พ.ย. 2026 · รวมเวลาเดินทางและกิจกรรมรายวัน</p>@if (planError()) {<p class="plan-error" role="alert">{{ planError() }}</p>}</div>
+    <div class="saved-plan-actions">@if (!planSaved()) {<button type="button" (click)="addPlan()" [disabled]="addingPlan()">{{ addingPlan() ? 'กำลังบันทึก…' : 'เพิ่มทริปลงแผนที่จีน' }}</button>}<a routerLink="/country/CN">ดูแผนที่จีน ↗</a>@if (planSaved()) {<a routerLink="/city/CN/BEIJING">ปักกิ่ง</a><a routerLink="/city/CN/TIANJIN">เทียนจิน</a>}</div>
+  </aside>
+  <div class="travel-topline"><a href="#itinerary">ROAVA <span>/ TRAVEL NOTES</span></a><span>CHINA, THROUGH YOUR EYES <span class="tiny-leaf">✦</span></span></div>
+  <section class="hero" aria-labelledby="trip-title">
+    <div class="hero-photo" role="img" aria-label="กำแพงเมืองจีนบนแนวเขา"></div>
+    <div class="hero-copy">
+      <div class="eyebrow"><span></span> AUTUMN IN BEIJING · 2026</div>
+      <p class="hero-intro">แพลนเที่ยว เมืองแห่งความทรงจำ</p>
+      <h1 id="trip-title">ปักกิ่ง<span>Beijing<span class="title-dot">.</span></span></h1>
+      <p class="hero-description">7 วัน 6 คืน ที่จะตกหลุมรักเมืองนี้<br>เที่ยวครบไฮไลต์ เดินทางสบาย ๆ ด้วย MRT <span>♥</span></p>
+      <div class="date-ticket"><span class="calendar-icon" aria-hidden="true">▦</span><div><small>ออกไปเก็บความทรงจำ</small><strong>29 ต.ค. – 4 พ.ย. 2026</strong></div><span class="ticket-days">7 <small>DAYS</small></span></div>
+      <a class="explore-link" href="#itinerary">เริ่มสำรวจแผนเที่ยว <span>↓</span></a>
+    </div>
+    <div class="photo-caption"><span>中国 · 北京</span> A LITTLE ADVENTURE, A LOT OF MEMORIES</div>
+    <div class="season-stamp" aria-hidden="true">秋<br><small>AUTUMN<br>EDITION</small></div>
+  </section>
+
+  <section class="trip-facts" aria-label="ข้อมูลทริป"><div><span>◷</span><p><small>ระยะเวลาเดินทาง</small><strong>7 วัน <i>/</i> 6 คืน</strong></p></div><div><span>♧</span><p><small>ฤดูที่น่าออกเดินทาง</small><strong>ใบไม้เปลี่ยนสี</strong></p></div><div><span>▤</span><p><small>เดินทางในเมือง</small><strong>MRT + Didi</strong></p></div><div><span>☀</span><p><small>อุณหภูมิตลอดทริป</small><strong>2° – 20°C</strong></p></div></section>
+
+  <section id="itinerary" class="itinerary-section" aria-labelledby="itinerary-title">
+    <div class="section-heading"><div><div class="eyebrow">THE JOURNEY, DAY BY DAY</div><h2 id="itinerary-title">ทุกวัน มีเรื่องให้จดจำ<span>✦</span></h2><p>จากกำแพงเมืองจีน สู่ถนนสายเล็ก ๆ ที่เต็มไปด้วยชีวิต</p></div><button class="print-button" type="button" (click)="print()"><span aria-hidden="true">▤</span> พิมพ์แผนเที่ยว</button></div>
+    <nav class="day-filter" aria-label="เลือกวันเดินทาง"><button type="button" [class.selected]="selectedDay() === 0" [attr.aria-pressed]="selectedDay() === 0" (click)="selectedDay.set(0)">ทั้งหมด 7 วัน</button>@for (day of days; track day.number) {<button type="button" [class.selected]="selectedDay() === day.number" [attr.aria-pressed]="selectedDay() === day.number" (click)="selectedDay.set(day.number)">Day {{ day.number }} <span>{{ day.date }}</span></button>}</nav>
+    <div class="days-grid" aria-live="polite">
+      @for (day of visibleDays(); track day.number) {
+        <article class="day-card" [style.--day-color]="day.color">
+          <header class="day-card-header"><div><span class="day-label">DAY</span><strong>{{ ('0' + day.number).slice(-2) }}</strong></div><p>{{ day.date }}<small>{{ day.weekday }} · 2026</small></p><span class="day-flower" aria-hidden="true">✦</span></header>
+          <div class="day-body"><div class="weather"><span class="weather-icon" aria-hidden="true">{{ day.weather }}</span><strong>{{ day.temperature }}<small>C</small></strong><span>{{ day.forecast }}</span></div>
+          <h3>{{ day.title }}</h3><p class="day-subtitle">{{ day.subtitle }}</p>
+          @if (day.image) {<div class="destination-image" [class]="'destination-image ' + day.image" role="img" [attr.aria-label]="day.imageLabel"><span>BEIJING / DAY 0{{ day.number }}</span></div>}
+          @if (day.number === 5) {<div class="feature-note universal"><span aria-hidden="true">✧</span><small>A DAY OF WONDER</small><strong>Let the magic<br>begin.</strong><span>UNIVERSAL BEIJING RESORT</span></div>}
+          @if (day.number === 6) {<div class="feature-note panda"><span aria-hidden="true">🐼</span><div><small>HELLO, LITTLE FRIEND</small><strong>นัดเจอความน่ารัก</strong><span>BEIJING ZOO · PANDA HOUSE</span></div></div>}
+          <ol class="timeline">@for (stop of day.stops; track $index) {<li><time>{{ stop.time }}</time><span class="timeline-dot" aria-hidden="true"></span><div><h4>{{ stop.name }}</h4>@if (stop.detail) {<p>{{ stop.detail }}</p>}@if (stop.metro) {<span class="metro"><span aria-hidden="true">▣</span> MRT {{ stop.metro }}</span>}</div></li>}</ol>
+          @if (day.tip) {<aside class="day-tip"><span aria-hidden="true">✦</span>{{ day.tip }}</aside>}
+          <div class="itinerary-expense-total" aria-live="polite"><span>รวมค่าใช้จ่ายวันที่ {{ day.date }}</span><div>@for (total of dayExpenseTotals(day); track total.currency) {<strong>{{ total.amount | number:'1.0-2' }} {{ total.currency }}</strong>} @empty {<strong>0 THB</strong>}</div></div>
+          </div>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="before-you-go" aria-labelledby="before-title"><div class="weather-summary"><div class="eyebrow">A LITTLE PREPARATION</div><h2 id="before-title">เตรียมพร้อม ก่อนออกเดินทาง</h2><p>อากาศเย็นลงทุกวัน เก็บเสื้ออุ่น ๆ ไว้ในกระเป๋าด้วยนะ</p><div class="forecast-grid">@for (day of days; track day.number) {<div><small>{{ day.date }}</small><span aria-hidden="true">{{ day.weather }}</span><strong>{{ day.temperature }}</strong></div>}</div><small class="forecast-note">อุณหภูมิเป็นข้อมูลคาดการณ์ตามแผนต้นฉบับ ควรตรวจสอบอีกครั้งก่อนเดินทาง 7–10 วัน</small></div><div class="travel-tips"><h3>เก็บไว้ใช้ระหว่างทาง <span>↗</span></h3><ul><li><span>▣</span><div><strong>MRT + Didi</strong><p>รถไฟใต้ดินสะดวก ประหยัด · เรียกรถสำหรับเส้นทางไกล</p></div></li><li><span>▤</span><div><strong>จองล่วงหน้า อุ่นใจกว่า</strong><p>Forbidden City, Universal และรถไฟไปเทียนจิน</p></div></li><li><span>◎</span><div><strong>แอปที่ควรมีติดเครื่อง</strong><p>Baidu Map · Didi · Trip.com · Google Translate</p></div></li><li><span>♧</span><div><strong>เสื้อกันหนาว + รองเท้าคู่โปรด</strong><p>เดินเยอะกว่าที่คิด เตรียมพาสปอร์ตตัวจริงติดตัว</p></div></li></ul></div></section>
+  <footer class="trip-footer"><span class="footer-flower" aria-hidden="true">✳</span><p>“บางสถานที่… ไม่ใช่แค่จุดหมาย<br><strong>แต่คือความทรงจำที่อยู่กับเราเสมอ”</strong> <span>♥</span></p><span class="footer-sign">แล้วพบกันใหม่…<strong>ปักกิ่ง 北京</strong></span></footer>
+  <div class="page-bottom"><span>ROAVA / MADE FOR THE MEMORIES</span><span>BEIJING, CHINA · AUTUMN 2026</span></div>
+</div>

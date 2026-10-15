@@ -8,6 +8,7 @@ import { CONTINENTS, ContinentCode, continentByCode, countriesByContinent, count
 import { MediaStorage } from '../../../core/storage/media-storage';
 import { TravelDocument, Trip } from '../../../core/models/travel.models';
 import { PhotoImporter } from '../../media/photo-importer/photo-importer';
+import { countTravelDays } from '../../../core/models/travel-days';
 
 @Component({ selector: 'asia-dashboard', standalone: true, imports: [CommonModule, DatePipe, DecimalPipe, AtlasMap, TripEditor, PhotoImporter], templateUrl: './asia-dashboard.html', styleUrl: './asia-dashboard.css' })
 export class AsiaDashboard {
@@ -26,7 +27,7 @@ export class AsiaDashboard {
       cities: new Set(trips.map((trip) => `${trip.countryCode}:${trip.cityCode}`)).size,
       trips: trips.length,
       places: trips.reduce((sum, trip) => sum + trip.places.length, 0),
-      days: trips.reduce((sum, trip) => sum + Math.max(1, Math.round((Date.parse(trip.endDate) - Date.parse(trip.startDate)) / 86400000) + 1), 0),
+      days: countTravelDays(trips),
       expenses: trips.flatMap((trip) => trip.expenses).reduce((sum, expense) => sum + expense.amount, 0),
     };
   });
@@ -66,6 +67,7 @@ export class AsiaDashboard {
     void this.router.navigate(['/continent', code]);
   }
   selectCountry(code: string): void {
+    if (code === 'CN') { void this.router.navigate(['/country', 'CN']); return; }
     this.pendingCountryCode = null;
     this.selectedCountry.set(this.countries().some((country) => country.code === code) ? code : null);
     this.clearCountrySearch();
@@ -107,6 +109,7 @@ export class AsiaDashboard {
   private flash(message: string): void { this.toast.set(message); window.setTimeout(() => this.toast.set(''), 2800); }
   private clearCountrySearch(): void { this.countrySearch.set(''); this.countrySearchOpen.set(false); }
   private showCountry(code: string): void {
+    if (code === 'CN') { void this.router.navigate(['/country', 'CN']); return; }
     const country = countryByCode(code);
     if (!country) { this.selectedCountry.set(null); return; }
     if (country.continentCode !== this.continentCode()) {

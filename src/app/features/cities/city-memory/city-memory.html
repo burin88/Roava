@@ -21,13 +21,13 @@
 
           <section class="memory-section">
             <div class="section-head"><div><span class="section-label">JOURNEY</span><h3>Places & timeline</h3></div><button class="button secondary" (click)="openPlace()">＋ Add place</button></div>
-            @if (!trip.places.length) {<div class="small-empty">Add the first place to begin your journey line.</div>} @else {
+            @if (!trip.places.length && !trip.expenses.length) {<div class="small-empty">Add the first place or expense to begin your journey line.</div>} @else {
               <div class="place-day-groups">
                 @for (group of placeDayGroups(trip); track group.date) {
                   <section class="place-day-card" [class.collapsed]="isPlaceDayCollapsed(group.date)">
                     <button type="button" class="place-day-header" (click)="togglePlaceDay(group.date)" [attr.aria-expanded]="!isPlaceDayCollapsed(group.date)">
                       <span class="day-calendar"><b>{{ group.date ? (group.date | date:'dd') : '—' }}</b><small>{{ group.date ? (group.date | date:'MMM' | uppercase) : 'DATE' }}</small></span>
-                      <span class="day-heading"><small>TRAVEL DAY</small><strong>{{ group.date ? (group.date | date:'EEEE, d MMMM y') : 'No date specified' }}</strong><em>{{ group.places.length }} {{ group.places.length === 1 ? 'place' : 'places' }}</em></span>
+                      <span class="day-heading"><small>TRAVEL DAY</small><strong>{{ group.date ? (group.date | date:'EEEE, d MMMM y') : 'No date specified' }}</strong><em>{{ group.places.length }} {{ group.places.length === 1 ? 'place' : 'places' }} · {{ group.expenses.length }} expenses</em><span class="day-expense-totals" aria-live="polite"><span>ค่าใช้จ่ายวันนี้</span>@for (total of group.totals; track total.currency) {<b>{{ total.amount | number:'1.0-2' }} {{ total.currency }}</b>} @empty {<b>0 THB</b>}</span></span>
                       <span class="day-chevron">⌄</span>
                     </button>
                     @if (!isPlaceDayCollapsed(group.date)) {
@@ -36,6 +36,13 @@
                           <article><div class="timeline-dot"><span>{{ placeNumber(trip, place) }}</span></div><div class="place-date">{{ place.time || 'Memory' }}</div><div class="place-copy"><h4>{{ place.name }}</h4><p>{{ place.note || place.description || 'No note yet.' }}</p><span>@if(place.rating){★ {{ place.rating }}/5} @if(place.latitude || place.longitude){ · {{ place.latitude | number:'1.2-2' }}, {{ place.longitude | number:'1.2-2' }}}</span>@if (journeyPhotoPreview(place).length) {<button type="button" class="journey-photo-strip" (click)="openPlaceGallery(place)" [attr.aria-label]="'View all photos from ' + place.name">@for (photo of journeyPhotoPreview(place); track photo.id; let photoIndex = $index) {<span class="journey-photo"><img [src]="photo.url" [alt]="photo.name" loading="lazy">@if (photoIndex === 3 && remainingPlacePhotos(place)) {<b>+ {{ remainingPlacePhotos(place) }} รูปภาพ</b>}</span>}</button>}</div><div class="row-actions"><button (click)="openPlace(place)">Edit</button><button (click)="deletePlace(place)">×</button></div></article>
                         }
                       </div>
+                      @if (group.expenses.length) {
+                        <div class="day-expenses"><h4>ค่าใช้จ่ายประจำวันที่ {{ group.date ? (group.date | date:'d MMM y') : 'ยังไม่ระบุวันที่' }}</h4>
+                          @for (expense of group.expenses; track expense.id) {
+                            <article><span class="day-expense-icon" aria-hidden="true">{{ expenseTypeIcon(expense.type) }}</span><div><strong>{{ expense.type }}</strong>@if (expense.note) {<p>{{ expense.note }}</p>}@if (photosForExpense(expense).length) {<button type="button" class="receipt-preview" (click)="openReceiptGallery(expense)" [attr.aria-label]="'ดูรูปแนบ ' + photosForExpense(expense).length + ' รูป'">@for (photo of photosForExpense(expense).slice(0,3); track photo.id) {<img [src]="photo.url" [alt]="photo.name" loading="lazy">}<span>{{ photosForExpense(expense).length }} รูป ↗</span></button>}</div><b>{{ expense.amount | number:'1.0-2' }} {{ expense.currency }}</b><button type="button" (click)="openExpense(expense)" [attr.aria-label]="'Edit expense ' + expense.type">Edit</button><button type="button" (click)="deleteExpense(expense)" [attr.aria-label]="'Delete expense ' + expense.type">×</button></article>
+                          }
+                        </div>
+                      }
                     }
                   </section>
                 }
@@ -45,8 +52,8 @@
 
           <div class="two-column">
             <section class="memory-section">
-              <div class="section-head"><div><span class="section-label">EXPENSES</span><h3>{{ tripExpense(trip) | number:'1.0-0' }} THB</h3></div><button class="button secondary" (click)="openExpense()">＋ Add</button></div>
-              <div class="expense-list">@for (expense of trip.expenses; track expense.id) {<article><span class="expense-icon">{{ expense.type === 'Transport' ? '↗' : expense.type === 'Hotel' ? '⌂' : expense.type === 'Restaurant' ? '♨' : '◇' }}</span><div><b>{{ expense.type }}</b><small>{{ expense.note || expense.spentAt }}</small></div><strong>{{ expense.amount | number:'1.0-0' }} {{ expense.currency }}</strong><button (click)="openExpense(expense)">Edit</button><button (click)="deleteExpense(expense)">×</button></article>} @empty {<div class="small-empty">No expenses recorded.</div>}</div>
+              <div class="section-head"><div><span class="section-label">EXPENSES</span><h3>@for (total of expenseTotals(trip.expenses); track total.currency; let last = $last) {<span>{{ total.amount | number:'1.0-2' }} {{ total.currency }}{{ last ? '' : ' · ' }}</span>} @empty {0 THB}</h3></div><button class="button secondary" (click)="openExpense()">＋ Add</button></div>
+              <div class="expense-list">@for (expense of trip.expenses; track expense.id) {<article><span class="expense-icon">{{ expense.type === 'Transport' ? '↗' : expense.type === 'Hotel' ? '⌂' : expense.type === 'Restaurant' ? '♨' : '◇' }}</span><div><b>{{ expense.type }}</b><small>{{ expense.note || expense.spentAt }}</small></div><strong>{{ expense.amount | number:'1.0-0' }} {{ expense.currency }}</strong>@if (expense.mediaIds?.length) {<button type="button" (click)="openReceiptGallery(expense)">▧ {{ expense.mediaIds?.length }} รูป</button>}<button (click)="openExpense(expense)">Edit</button><button (click)="deleteExpense(expense)">×</button></article>} @empty {<div class="small-empty">No expenses recorded.</div>}</div>
             </section>
             <section class="memory-section notes"><span class="section-label">NOTES & DETAILS</span><h3>Things worth remembering</h3><p>{{ trip.notes || 'No notes yet. Edit this journey to write down what made it special.' }}</p><dl>@if(trip.transport){<div><dt>Transport</dt><dd>{{ trip.transport }}</dd></div>}@if(trip.hotel){<div><dt>Stayed at</dt><dd>{{ trip.hotel }}</dd></div>}@if(trip.restaurant){<div><dt>Favorite meal</dt><dd>{{ trip.restaurant }}</dd></div>}@if(trip.route){<div><dt>Route</dt><dd>{{ trip.route }}</dd></div>}</dl>
             </section>
@@ -114,11 +121,11 @@
   </div>
 }
 @if (expenseEditorOpen()) {
-  <div class="modal-backdrop" (click)="expenseEditorOpen.set(false)">
+  <div class="modal-backdrop" (click)="closeExpenseEditor()">
     <form class="mini-modal expense-modal" (click)="$event.stopPropagation()" (ngSubmit)="saveExpense()">
       <header>
         <div><span class="section-label">EXPENSE</span><h2>Add the cost</h2></div>
-        <button type="button" (click)="expenseEditorOpen.set(false)">×</button>
+        <button type="button" (click)="closeExpenseEditor()" [disabled]="expensePhotoBusy">×</button>
       </header>
 
       <label class="expense-category">
@@ -151,10 +158,19 @@
         <label><span>Amount *</span><input class="expense-dark-text" name="amount" type="number" min="0" step="0.01" [(ngModel)]="expenseModel.amount" required></label>
         <label><span>Currency</span><input class="expense-dark-text currency-input" name="currency" [(ngModel)]="expenseModel.currency" placeholder="e.g. THB, JPY, USD" maxlength="3" autocomplete="off"></label>
       </div>
-      <label><span>Date</span><input class="expense-dark-text" name="spentAt" type="date" [(ngModel)]="expenseModel.spentAt"></label>
+      <label><span>Date</span><input class="expense-dark-text" name="spentAt" type="date" [(ngModel)]="expenseModel.spentAt" required></label>
       <label><span>Note</span><textarea class="expense-dark-text" name="expenseNote" rows="4" [(ngModel)]="expenseModel.note" placeholder="What was this for?"></textarea></label>
-      <footer><button type="button" class="button ghost" (click)="expenseEditorOpen.set(false)">Cancel</button><button class="button primary">Save expense</button></footer>
+      <section class="expense-attachments" aria-label="รูปแนบค่าใช้จ่าย">
+        <div class="receipt-field-head"><strong>รูปภาพ / ใบเสร็จ</strong><label class="receipt-add" [class.disabled]="expensePhotoBusy">+ แนบรูป<input type="file" multiple accept="image/*" [disabled]="expensePhotoBusy" (change)="addExpensePhotos($event)"></label></div>
+        @if (!expenseExistingPhotos.length && !expensePendingPhotos.length) {<label class="receipt-empty"><input type="file" multiple accept="image/*" [disabled]="expensePhotoBusy" (change)="addExpensePhotos($event)"><span aria-hidden="true">▧</span><strong>แนบใบเสร็จหรือรูปประกอบ</strong><small>เลือกได้หลายรูป · รูปจะถูกบันทึกเมื่อกด Save expense</small></label>}
+        @else {<div class="receipt-draft-grid">@for (photo of expenseExistingPhotos; track photo.id) {<figure><a [href]="photo.url" target="_blank" rel="noopener noreferrer"><img [src]="photo.url" [alt]="photo.name"></a><button type="button" [disabled]="expensePhotoBusy" (click)="removeExistingExpensePhoto(photo)" [attr.aria-label]="'เอารูป ' + photo.name + ' ออกจากรายการ'">×</button></figure>}@for (photo of expensePendingPhotos; track photo.url) {<figure><img [src]="photo.url" [alt]="photo.file.name"><span>ใหม่</span><button type="button" [disabled]="expensePhotoBusy" (click)="removePendingExpensePhoto(photo)" [attr.aria-label]="'เอารูป ' + photo.file.name + ' ออกจากรายการ'">×</button></figure>}</div>}
+        @if (expensePhotoError) {<p class="receipt-error" role="alert">{{ expensePhotoError }}</p>}
+      </section>
+      <footer><button type="button" class="button ghost" (click)="closeExpenseEditor()" [disabled]="expensePhotoBusy">Cancel</button><button class="button primary" [disabled]="expensePhotoBusy">{{ expensePhotoBusy ? 'กำลังบันทึก…' : 'Save expense' }}</button></footer>
     </form>
   </div>
+}
+@if (receiptGallery(); as expense) {
+  <div class="modal-backdrop gallery-backdrop" (click)="receiptGallery.set(null)"><section class="receipt-gallery" role="dialog" aria-modal="true" aria-label="รูปภาพแนบค่าใช้จ่าย" (click)="$event.stopPropagation()"><header><div><small>EXPENSE RECEIPTS</small><h2>{{ expense.type }} · {{ expense.amount | number:'1.0-2' }} {{ expense.currency }}</h2><p>{{ expense.spentAt | date:'d MMM y' }} · {{ expense.note }}</p></div><button type="button" (click)="receiptGallery.set(null)" aria-label="ปิดรูปแนบ">×</button></header><div>@for (photo of photosForExpense(expense); track photo.id) {<figure><a [href]="photo.url" target="_blank" rel="noopener noreferrer"><img [src]="photo.url" [alt]="photo.name"></a><figcaption>{{ photo.name }}</figcaption></figure>}</div></section></div>
 }
 @if (toast()) {<div class="toast">✓ {{ toast() }}</div>}

@@ -17,6 +17,7 @@ Open `http://localhost:4200`.
 - Continent-scoped routes, country dropdowns, statistics, camera positions, GeoJSON and SVG fallbacks
 - Visited country and city state derived only from trip data
 - Country drill-down and City Memory pages
+- China province drill-down at `/country/CN`: click China in Asia to explore 31 mainland provincial-level regions, with visited areas inferred from trips, destination cities and place coordinates
 - Trip, place, expense and notes CRUD
 - Original photo files stored by the local media server in `img/travel-photos`
 - Structured travel data in `localStorage` under `travel-atlas:poc`
@@ -40,4 +41,21 @@ JSON backups currently contain structured travel data and media references. The 
 npm start          # development server
 npm run build      # production build
 npm run generate:map # rebuild static GeoJSON and SVG fallback
+npm run generate:china-map # rebuild China provincial paths from retained local GeoJSON
+npm run test:china-map # verify province matching, map projection and trip editor integration
+npm run test:beijing-plan # verify the seven-day plan, additive import and shared travel-day counting
 ```
+
+## Requested Beijing–Tianjin itinerary
+
+Opening `/beijing` or `/country/CN` adds the requested 29 October–4 November 2026
+itinerary once in that browser. It creates a seven-day Beijing record and a
+Tianjin companion day trip on 3 November. Both share a journey group, so aggregate
+travel-day totals count seven days. Daily times, activities, transport notes and
+known destination pins are derived from the same data used by `/beijing`.
+
+The import merges missing stable IDs and preserves existing journeys, profile,
+photos and edits. A separate localStorage marker prevents later automatic visits
+from restoring deleted records. The `/beijing` page has an explicit add action to
+restore missing itinerary records when wanted. Unspecified meals and hotels have
+no invented coordinates, expenses or ratings.

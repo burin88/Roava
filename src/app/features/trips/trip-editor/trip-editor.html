@@ -48,8 +48,20 @@
 
       <label>
         <span>City *</span>
-        <input name="city" [(ngModel)]="cityText" [placeholder]="selectedCountry.cities[0]?.name || 'City name'">
+        <input name="city" [(ngModel)]="cityText" (ngModelChange)="updateCityProvince()" [placeholder]="selectedCountry.cities[0]?.name || 'City name'" list="journey-city-options" required>
+        <datalist id="journey-city-options">@for (city of selectedCountry.cities; track city.code) {<option [value]="city.name"></option>}</datalist>
       </label>
+
+      @if (model.countryCode === 'CN') {
+        <label class="wide">
+          <span>มณฑล / เขตระดับมณฑล</span>
+          <select name="province" [(ngModel)]="model.provinceCode" (ngModelChange)="selectProvince()">
+            <option [ngValue]="undefined">ยังไม่ระบุ — ใช้เมืองหรือพิกัดสถานที่ในทริป</option>
+            @for (province of chinaProvinces; track province.code) {<option [value]="province.code">{{ province.thaiName }} · {{ province.name }}</option>}
+          </select>
+          <small class="province-help">ใช้ระบายสีมณฑลบนแผนที่จีน ระบบจับคู่เมืองที่รู้จักให้อัตโนมัติ</small>
+        </label>
+      }
 
       <label>
         <span>Start date *</span>

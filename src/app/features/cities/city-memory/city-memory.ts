@@ -9,10 +9,10 @@ import { SummaryProvider } from '../../../core/summary/summary-provider';
 import { TravelStore } from '../../../core/state/travel-store';
 import { TripEditor } from '../../trips/trip-editor/trip-editor';
 import { PhotoImporter } from '../../media/photo-importer/photo-importer';
+import { expenseTotals, groupTravelDays, todayInBangkok, TravelDayGroup } from '../../../core/models/daily-expenses';
 
 interface PhotoView { id: string; url: string; name: string; objectUrl: boolean; }
 interface PendingPlacePhoto { file: File; url: string; }
-interface PlaceDayGroup { date: string; places: Place[]; }
 type TimeFormat = '24h' | '12h';
 
 @Component({ selector: 'city-memory', standalone: true, imports: [CommonModule, FormsModule, RouterLink, DatePipe, DecimalPipe, TripEditor, PhotoImporter], templateUrl: './city-memory.html', styleUrl: './city-memory.css' })
@@ -21,6 +21,10 @@ export class CityMemory implements OnDestroy {
   readonly countryCode = signal(''); readonly cityCode = signal(''); readonly editorOpen = signal(false); readonly photoImporterOpen = signal(false); readonly editingTrip = signal<Trip | null>(null); readonly selectedTripId = signal('');
   readonly placeEditorOpen = signal(false); readonly placeGallery = signal<Place | null>(null); readonly collapsedPlaceDays = signal<Set<string>>(new Set()); readonly expenseEditorOpen = signal(false); readonly expenseCategoryOpen = signal(false); readonly expenseCategoryQuery = signal(''); readonly photoViews = signal<PhotoView[]>([]); readonly photoBusy = signal(false); readonly photoError = signal(''); readonly toast = signal('');
   private photoLoadId = 0;
+  private expensePhotoLoadId = 0;
+  readonly receiptGallery = signal<Expense | null>(null);
+  expensePendingPhotos: PendingPlacePhoto[] = []; expenseExistingPhotos: PhotoView[] = [];
+  expenseRemovedMediaIds = new Set<string>(); expensePhotoBusy = false; expensePhotoError = '';
   placeTimeFormat: TimeFormat = '24h'; placeHour24 = 12; placeMinute24 = 0; placeHour12 = '12'; placeMinute12 = '00'; placeMeridiem: 'AM' | 'PM' = 'PM';
   placePendingPhotos: PendingPlacePhoto[] = []; placeExistingPhotos: PhotoView[] = []; placeRemovedMediaIds = new Set<string>(); placePhotoBusy = false; placePhotoError = '';
   placeModel: Place = this.newPlace(); expenseModel: Expense = this.newExpense();
@@ -45,7 +49,8 @@ export class CityMemory implements OnDestroy {
   days(trip: Trip): number { return Math.max(1, Math.round((Date.parse(trip.endDate)-Date.parse(trip.startDate))/86400000)+1); }
   flagIconPath(code: string): string { return `/assets/flags/4x3/${code.toLowerCase()}.svg`; }
   tripExpense(trip: Trip): number { return trip.expenses.reduce((sum, item) => sum + item.amount, 0); }
-  placeDayGroups(trip: Trip): PlaceDayGroup[] { const groups = new Map<string, Place[]>(); for (const place of trip.places) { const date = place.visitedAt || ''; groups.set(date, [...(groups.get(date) ?? []), place]); } return [...groups].map(([date, places]) => ({ date, places })).sort((a, b) => a.date.localeCompare(b.date)); }
+  placeDayGroups(trip: Trip): TravelDayGroup[] { return groupTravelDays(trip); }
+  readonly expenseTotals = expenseTotals;
   togglePlaceDay(date: string): void { this.collapsedPlaceDays.update((current) => { const next = new Set(current); next.has(date) ? next.delete(date) : next.add(date); return next; }); }
   isPlaceDayCollapsed(date: string): boolean { return this.collapsedPlaceDays().has(date); }
   placeNumber(trip: Trip, place: Place): number { return trip.places.findIndex((item) => item.id === place.id) + 1; }
@@ -53,6 +58,8 @@ export class CityMemory implements OnDestroy {
   journeyPhotoPreview(place: Place): PhotoView[] { return this.photosForPlace(place).slice(0, 4); }
   remainingPlacePhotos(place: Place): number { return Math.max(0, this.photosForPlace(place).length - 4); }
   openPlaceGallery(place: Place): void { if (this.photosForPlace(place).length) this.placeGallery.set(place); }
+  photosForExpense(expense: Expense): PhotoView[] { const ids = new Set(expense.mediaIds ?? []); return this.photoViews().filter(photo => ids.has(photo.id)); }
+  openReceiptGallery(expense: Expense): void { if (this.photosForExpense(expense).length) this.receiptGallery.set(expense); }
   selectTrip(trip: Trip): void { this.selectedTripId.set(trip.id); }
   openTripEditor(trip: Trip | null = null): void { this.editingTrip.set(trip); this.editorOpen.set(true); }
   async saveTrip(trip: Trip): Promise<void> { await this.store.save(trip); this.selectedTripId.set(trip.id); this.editorOpen.set(false); this.flash('Journey saved'); }
@@ -95,12 +102,62 @@ export class CityMemory implements OnDestroy {
     finally { this.placePhotoBusy = false; }
   }
   async deletePlace(place: Place): Promise<void> { const trip = this.selectedTrip(); if (!trip || !confirm(`Remove ${place.name}?`)) return; const mediaIds = place.mediaIds ?? []; await Promise.all(mediaIds.map((id) => this.media.delete(id))); await this.store.save({ ...trip, places: trip.places.filter((item) => item.id !== place.id), mediaIds: trip.mediaIds.filter((id) => !mediaIds.includes(id)) }); this.flash('Place removed'); }
-  openExpense(expense?: Expense): void { this.expenseModel = expense ? structuredClone(expense) : this.newExpense(); this.expenseCategoryQuery.set(this.expenseModel.type); this.expenseCategoryOpen.set(false); this.expenseEditorOpen.set(true); }
+  openExpense(expense?: Expense): void { if (this.expensePhotoBusy) return; this.clearExpensePhotoDraft(); this.expenseModel = expense ? structuredClone(expense) : this.newExpense(); this.expenseModel.mediaIds ??= []; this.expenseCategoryQuery.set(this.expenseModel.type); this.expenseCategoryOpen.set(false); this.expenseEditorOpen.set(true); void this.loadExpensePhotos(); }
+  closeExpenseEditor(): void { if (this.expensePhotoBusy) return; this.expenseEditorOpen.set(false); this.clearExpensePhotoDraft(); }
+  addExpensePhotos(event: Event): void {
+    if (this.expensePhotoBusy) return;
+    const input = event.target as HTMLInputElement;
+    for (const file of Array.from(input.files ?? [])) {
+      if (!file.type.startsWith('image/')) { this.expensePhotoError = 'กรุณาเลือกไฟล์รูปภาพ'; continue; }
+      this.expensePendingPhotos.push({ file, url: URL.createObjectURL(file) });
+    }
+    input.value = '';
+  }
+  removePendingExpensePhoto(photo: PendingPlacePhoto): void { if (this.expensePhotoBusy) return; URL.revokeObjectURL(photo.url); this.expensePendingPhotos = this.expensePendingPhotos.filter(item => item !== photo); }
+  removeExistingExpensePhoto(photo: PhotoView): void { if (this.expensePhotoBusy) return; this.expenseRemovedMediaIds.add(photo.id); if (photo.objectUrl) URL.revokeObjectURL(photo.url); this.expenseExistingPhotos = this.expenseExistingPhotos.filter(item => item.id !== photo.id); }
   selectExpenseType(type: ExpenseType): void { this.expenseModel.type = type; this.expenseCategoryQuery.set(type); this.expenseCategoryOpen.set(false); }
   expenseTypeIcon(type: ExpenseType): string { return type === 'Transport' ? '✈' : type === 'Hotel' ? '⌂' : type === 'Restaurant' ? '♨' : type === 'Ticket' ? '◇' : type === 'Shopping' ? '▣' : '••'; }
   closeExpenseCategorySoon(): void { window.setTimeout(() => this.expenseCategoryOpen.set(false), 120); }
-  async saveExpense(): Promise<void> { const trip = this.selectedTrip(); if (!trip) return; this.expenseModel.currency = this.expenseModel.currency.trim().toUpperCase() || 'THB'; const updated = structuredClone(trip); const index = updated.expenses.findIndex((expense) => expense.id === this.expenseModel.id); if (index >= 0) updated.expenses[index] = this.expenseModel; else updated.expenses.push(this.expenseModel); await this.store.save(updated); this.expenseEditorOpen.set(false); this.flash('Expense saved'); }
-  async deleteExpense(expense: Expense): Promise<void> { const trip = this.selectedTrip(); if (!trip) return; await this.store.save({ ...trip, expenses: trip.expenses.filter((item) => item.id !== expense.id) }); this.flash('Expense removed'); }
+  async saveExpense(): Promise<void> {
+    const trip = this.selectedTrip(); if (!trip || this.expensePhotoBusy) return;
+    this.expensePhotoBusy = true; this.expensePhotoError = '';
+    const uploaded: string[] = []; let committed = false;
+    try {
+      for (const photo of this.expensePendingPhotos) { const saved = await this.media.save(photo.file, trip.id); uploaded.push(saved.id); }
+      const expense = { ...structuredClone(this.expenseModel), currency: this.expenseModel.currency.trim().toUpperCase() || 'THB', mediaIds: [...new Set([...(this.expenseModel.mediaIds ?? []).filter(id => !this.expenseRemovedMediaIds.has(id)), ...uploaded])] };
+      const current = this.selectedTrip();
+      if (!current || current.id !== trip.id) throw new Error('ทริปที่เลือกเปลี่ยนไป กรุณาเปิดรายการค่าใช้จ่ายอีกครั้ง');
+      const updated = structuredClone(current);
+      const index = updated.expenses.findIndex(item => item.id === expense.id);
+      if (index >= 0) updated.expenses[index] = expense; else updated.expenses.push(expense);
+      const removed = this.unreferencedReceiptPhotos(updated, [...this.expenseRemovedMediaIds]);
+      updated.mediaIds = [...new Set([...updated.mediaIds.filter(id => !removed.includes(id)), ...uploaded])];
+      await this.store.save(updated); committed = true;
+      await this.cleanupReceiptFiles(removed);
+      this.collapsedPlaceDays.update(current => { const next = new Set(current); next.delete(expense.spentAt || ''); return next; });
+      this.expenseEditorOpen.set(false); this.clearExpensePhotoDraft(); this.flash('Expense and receipts saved');
+    } catch (cause) {
+      if (!committed) await Promise.allSettled(uploaded.map(id => this.media.delete(id)));
+      this.expensePhotoError = cause instanceof Error ? cause.message : 'บันทึกค่าใช้จ่ายและรูปภาพไม่สำเร็จ กรุณาลองอีกครั้ง';
+    } finally { this.expensePhotoBusy = false; }
+  }
+  async deleteExpense(expense: Expense): Promise<void> {
+    const trip = this.selectedTrip(); if (!trip || this.expensePhotoBusy) return;
+    const updated = { ...trip, expenses: trip.expenses.filter(item => item.id !== expense.id) };
+    const removed = this.unreferencedReceiptPhotos(updated, expense.mediaIds ?? []);
+    updated.mediaIds = updated.mediaIds.filter(id => !removed.includes(id));
+    await this.store.save(updated); await this.cleanupReceiptFiles(removed);
+    if (this.receiptGallery()?.id === expense.id) this.receiptGallery.set(null);
+    this.flash('Expense removed');
+  }
+  private unreferencedReceiptPhotos(trip: Trip, candidates: string[]): string[] {
+    const used = new Set([...trip.places.flatMap(place => place.mediaIds ?? []), ...trip.expenses.flatMap(expense => expense.mediaIds ?? [])]);
+    return [...new Set(candidates)].filter(id => !used.has(id));
+  }
+  private async cleanupReceiptFiles(ids: string[]): Promise<void> {
+    const results = await Promise.allSettled(ids.map(id => this.media.delete(id)));
+    if (results.some(result => result.status === 'rejected')) this.photoError.set('บันทึกรายการแล้ว แต่ลบไฟล์แนบเก่าบางรูปไม่สำเร็จ');
+  }
   async uploadPhotos(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement; const trip = this.selectedTrip(); const files = Array.from(input.files ?? []); if (!trip || !files.length) return;
     this.photoBusy.set(true); this.photoError.set('');
@@ -116,7 +173,7 @@ export class CityMemory implements OnDestroy {
   async deletePhoto(photo: PhotoView): Promise<void> {
     const trip = this.selectedTrip(); if (!trip) return; this.photoBusy.set(true); this.photoError.set('');
     try {
-      await this.media.delete(photo.id); const updated = { ...trip, mediaIds: trip.mediaIds.filter((id) => id !== photo.id) };
+      await this.media.delete(photo.id); const updated = { ...trip, mediaIds: trip.mediaIds.filter((id) => id !== photo.id), places: trip.places.map(place => ({ ...place, mediaIds: place.mediaIds?.filter(id => id !== photo.id) })), expenses: trip.expenses.map(expense => ({ ...expense, mediaIds: expense.mediaIds?.filter(id => id !== photo.id) })) };
       await this.store.save(updated); await this.loadPhotos(updated); this.flash('Photo removed from img/travel-photos');
     } catch (cause) {
       console.error('Photo deletion failed', cause); this.photoError.set(cause instanceof Error ? cause.message : 'Photo deletion failed');
@@ -140,9 +197,23 @@ export class CityMemory implements OnDestroy {
     }
   }
   private clearPhotoViews(): void { this.photoViews().filter((photo) => photo.objectUrl).forEach((photo) => URL.revokeObjectURL(photo.url)); this.photoViews.set([]); }
-  ngOnDestroy(): void { this.photoLoadId++; this.clearPhotoViews(); this.clearPlacePhotoDraft(); }
+  ngOnDestroy(): void { this.photoLoadId++; this.clearPhotoViews(); this.clearPlacePhotoDraft(); this.clearExpensePhotoDraft(); }
   private newPlace(): Place { const trip = this.selectedTrip?.(); return { id: crypto.randomUUID(), name: '', latitude: this.city?.()?.coordinates[1] ?? 0, longitude: this.city?.()?.coordinates[0] ?? 0, visitedAt: trip?.startDate ?? new Date().toISOString().slice(0,10), time: '', description: '', note: '', rating: 0, tags: [] }; }
-  private newExpense(): Expense { return { id: crypto.randomUUID(), type: 'Other', amount: 0, currency: 'THB', note: '', spentAt: this.selectedTrip?.()?.startDate ?? new Date().toISOString().slice(0,10) }; }
+  private newExpense(): Expense { return { id: crypto.randomUUID(), type: 'Other', amount: 0, currency: 'THB', note: '', spentAt: todayInBangkok(), mediaIds: [] }; }
+  private async loadExpensePhotos(): Promise<void> {
+    const loadId = ++this.expensePhotoLoadId;
+    try {
+      const records = await Promise.all((this.expenseModel.mediaIds ?? []).map(id => this.media.getRecord(id)));
+      if (loadId !== this.expensePhotoLoadId || !this.expenseEditorOpen()) return;
+      this.expenseExistingPhotos = records.filter(record => !!record).map(record => ({ id: record!.id, url: record!.thumbnailUrl ?? record!.url ?? URL.createObjectURL(record!.thumbnailBlob ?? record!.blob!), name: record!.fileName, objectUrl: !record!.thumbnailUrl && !record!.url }));
+    } catch { if (loadId === this.expensePhotoLoadId) this.expensePhotoError = 'โหลดรูปแนบไม่สำเร็จ กรุณาลองเปิดรายการอีกครั้ง'; }
+  }
+  private clearExpensePhotoDraft(): void {
+    this.expensePhotoLoadId++;
+    this.expensePendingPhotos.forEach(photo => URL.revokeObjectURL(photo.url));
+    this.expenseExistingPhotos.filter(photo => photo.objectUrl).forEach(photo => URL.revokeObjectURL(photo.url));
+    this.expensePendingPhotos = []; this.expenseExistingPhotos = []; this.expenseRemovedMediaIds.clear(); this.expensePhotoError = '';
+  }
   private sync12HourTime(): void { const [hourText = '12', minute = '00'] = (this.placeModel.time || '12:00').split(':'); const hour = Number(hourText); this.placeHour12 = String(hour % 12 || 12).padStart(2, '0'); this.placeMinute12 = minute; this.placeMeridiem = hour >= 12 ? 'PM' : 'AM'; }
   private sync24HourTime(): void { let hour = Number(this.placeHour12) % 12; if (this.placeMeridiem === 'PM') hour += 12; this.placeModel.time = `${String(hour).padStart(2, '0')}:${this.placeMinute12}`; }
   private sync24HourFields(): void { const [hour = '12', minute = '00'] = (this.placeModel.time || '12:00').split(':'); this.placeHour24 = Number(hour); this.placeMinute24 = Number(minute); }
