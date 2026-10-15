@@ -1,5 +1,5 @@
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, effect, inject, OnDestroy, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { continentByCode, countriesByContinent, countryByCode, cityByCode } from '../../../core/data/asia-catalog';
@@ -18,6 +18,7 @@ type TimeFormat = '24h' | '12h';
 
 @Component({ selector: 'city-memory', standalone: true, imports: [CommonModule, FormsModule, RouterLink, DatePipe, DecimalPipe, TripEditor, PhotoImporter, ExpenseDialogViewport], templateUrl: './city-memory.html', styleUrl: './city-memory.css' })
 export class CityMemory implements OnDestroy {
+  private readonly changeDetector = inject(ChangeDetectorRef);
   readonly store = inject(TravelStore); private readonly route = inject(ActivatedRoute); private readonly router = inject(Router); private readonly media = inject(MediaStorage); readonly summaries = inject(SummaryProvider);
   readonly countryCode = signal(''); readonly cityCode = signal(''); readonly editorOpen = signal(false); readonly photoImporterOpen = signal(false); readonly editingTrip = signal<Trip | null>(null); readonly selectedTripId = signal('');
   readonly placeEditorOpen = signal(false); readonly placeGallery = signal<Place | null>(null); readonly collapsedPlaceDays = signal<Set<string>>(new Set()); readonly expenseEditorOpen = signal(false); readonly expenseCategoryOpen = signal(false); readonly expenseCategoryQuery = signal(''); readonly photoViews = signal<PhotoView[]>([]); readonly photoBusy = signal(false); readonly photoError = signal(''); readonly toast = signal('');
@@ -26,6 +27,7 @@ export class CityMemory implements OnDestroy {
   readonly receiptGallery = signal<Expense | null>(null);
   expensePendingPhotos: PendingPlacePhoto[] = []; expenseExistingPhotos: PhotoView[] = [];
   expenseRemovedMediaIds = new Set<string>(); expensePhotoBusy = false; expensePhotoError = '';
+  expenseUploadProgress = '';
   placeTimeFormat: TimeFormat = '24h'; placeHour24 = 12; placeMinute24 = 0; placeHour12 = '12'; placeMinute12 = '00'; placeMeridiem: 'AM' | 'PM' = 'PM';
   placePendingPhotos: PendingPlacePhoto[] = []; placeExistingPhotos: PhotoView[] = []; placeRemovedMediaIds = new Set<string>(); placePhotoBusy = false; placePhotoError = '';
   placeModel: Place = this.newPlace(); expenseModel: Expense = this.newExpense();
@@ -52,6 +54,7 @@ export class CityMemory implements OnDestroy {
   tripExpense(trip: Trip): number { return trip.expenses.reduce((sum, item) => sum + item.amount, 0); }
   placeDayGroups(trip: Trip): TravelDayGroup[] { return groupTravelDays(trip); }
   readonly expenseTotals = expenseTotals;
+  get mediaStorageNote(): string { return this.media.location === 'browser' ? 'รูปภาพเก็บในเบราว์เซอร์และอุปกรณ์นี้ โปรดเก็บรูปต้นฉบับไว้ด้วย' : 'รูปภาพต้นฉบับเก็บในโฟลเดอร์ img/travel-photos ของโปรเจกต์'; }
   togglePlaceDay(date: string): void { this.collapsedPlaceDays.update((current) => { const next = new Set(current); next.has(date) ? next.delete(date) : next.add(date); return next; }); }
   isPlaceDayCollapsed(date: string): boolean { return this.collapsedPlaceDays().has(date); }
   placeNumber(trip: Trip, place: Place): number { return trip.places.findIndex((item) => item.id === place.id) + 1; }
@@ -124,7 +127,12 @@ export class CityMemory implements OnDestroy {
     this.expensePhotoBusy = true; this.expensePhotoError = '';
     const uploaded: string[] = []; let committed = false;
     try {
-      for (const photo of this.expensePendingPhotos) { const saved = await this.media.save(photo.file, trip.id); uploaded.push(saved.id); }
+      for (const [index, photo] of this.expensePendingPhotos.entries()) {
+        this.expenseUploadProgress = `กำลังอัปโหลดรูป ${index + 1}/${this.expensePendingPhotos.length}…`;
+        this.changeDetector.markForCheck();
+        const saved = await this.media.save(photo.file, trip.id); uploaded.push(saved.id);
+      }
+      this.expenseUploadProgress = 'กำลังบันทึกค่าใช้จ่าย…'; this.changeDetector.markForCheck();
       const expense = { ...structuredClone(this.expenseModel), currency: this.expenseModel.currency.trim().toUpperCase() || 'THB', mediaIds: [...new Set([...(this.expenseModel.mediaIds ?? []).filter(id => !this.expenseRemovedMediaIds.has(id)), ...uploaded])] };
       const current = this.selectedTrip();
       if (!current || current.id !== trip.id) throw new Error('ทริปที่เลือกเปลี่ยนไป กรุณาเปิดรายการค่าใช้จ่ายอีกครั้ง');
@@ -140,7 +148,7 @@ export class CityMemory implements OnDestroy {
     } catch (cause) {
       if (!committed) await Promise.allSettled(uploaded.map(id => this.media.delete(id)));
       this.expensePhotoError = cause instanceof Error ? cause.message : 'บันทึกค่าใช้จ่ายและรูปภาพไม่สำเร็จ กรุณาลองอีกครั้ง';
-    } finally { this.expensePhotoBusy = false; }
+    } finally { this.expensePhotoBusy = false; this.expenseUploadProgress = ''; this.changeDetector.markForCheck(); }
   }
   async deleteExpense(expense: Expense): Promise<void> {
     const trip = this.selectedTrip(); if (!trip || this.expensePhotoBusy) return;
@@ -166,7 +174,7 @@ export class CityMemory implements OnDestroy {
       const saved = await Promise.all(files.map((file) => this.media.save(file, trip.id)));
       const updated = { ...trip, mediaIds: [...trip.mediaIds, ...saved.map((item) => item.id)] };
       await this.store.save(updated); await this.loadPhotos(updated); input.value = '';
-      this.flash(`${saved.length} photo${saved.length > 1 ? 's' : ''} saved to img/travel-photos`);
+      this.flash(`${saved.length} photo${saved.length > 1 ? 's' : ''} saved`);
     } catch (cause) {
       console.error('Photo upload failed', cause); this.photoError.set(cause instanceof Error ? cause.message : 'Photo upload failed');
     } finally { this.photoBusy.set(false); }
@@ -175,7 +183,7 @@ export class CityMemory implements OnDestroy {
     const trip = this.selectedTrip(); if (!trip) return; this.photoBusy.set(true); this.photoError.set('');
     try {
       await this.media.delete(photo.id); const updated = { ...trip, mediaIds: trip.mediaIds.filter((id) => id !== photo.id), places: trip.places.map(place => ({ ...place, mediaIds: place.mediaIds?.filter(id => id !== photo.id) })), expenses: trip.expenses.map(expense => ({ ...expense, mediaIds: expense.mediaIds?.filter(id => id !== photo.id) })) };
-      await this.store.save(updated); await this.loadPhotos(updated); this.flash('Photo removed from img/travel-photos');
+      await this.store.save(updated); await this.loadPhotos(updated); this.flash('Photo removed');
     } catch (cause) {
       console.error('Photo deletion failed', cause); this.photoError.set(cause instanceof Error ? cause.message : 'Photo deletion failed');
     } finally { this.photoBusy.set(false); }
@@ -208,6 +216,7 @@ export class CityMemory implements OnDestroy {
       if (loadId !== this.expensePhotoLoadId || !this.expenseEditorOpen()) return;
       this.expenseExistingPhotos = records.filter(record => !!record).map(record => ({ id: record!.id, url: record!.thumbnailUrl ?? record!.url ?? URL.createObjectURL(record!.thumbnailBlob ?? record!.blob!), name: record!.fileName, objectUrl: !record!.thumbnailUrl && !record!.url }));
     } catch { if (loadId === this.expensePhotoLoadId) this.expensePhotoError = 'โหลดรูปแนบไม่สำเร็จ กรุณาลองเปิดรายการอีกครั้ง'; }
+    finally { if (loadId === this.expensePhotoLoadId) this.changeDetector.markForCheck(); }
   }
   private clearExpensePhotoDraft(): void {
     this.expensePhotoLoadId++;

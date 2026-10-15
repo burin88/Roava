@@ -1,4 +1,4 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
+import { ApplicationConfig, inject, isDevMode, provideBrowserGlobalErrorListeners } from '@angular/core';
 import { provideRouter, withInMemoryScrolling } from '@angular/router';
 import { routes } from './app.routes';
 import { LocalTravelRepository } from './core/storage/local-travel.repository';
@@ -18,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(), provideRouter(routes, withInMemoryScrolling({ scrollPositionRestoration: 'top' })),
     LocalTravelRepository, IndexedDbMediaStorage, FileSystemMediaStorage, LocalSummaryProvider, TesseractOcrProvider, LocalPhotoAnalysisProvider,
     { provide: TravelRepository, useExisting: LocalTravelRepository },
-    { provide: MediaStorage, useExisting: FileSystemMediaStorage },
+    { provide: MediaStorage, useFactory: () => isDevMode() ? inject(FileSystemMediaStorage) : inject(IndexedDbMediaStorage) },
     { provide: SummaryProvider, useExisting: LocalSummaryProvider },
     { provide: OcrProvider, useExisting: TesseractOcrProvider },
     { provide: PhotoAnalysisProvider, useExisting: LocalPhotoAnalysisProvider },

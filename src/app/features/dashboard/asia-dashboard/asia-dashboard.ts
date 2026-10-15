@@ -48,6 +48,7 @@ export class AsiaDashboard {
     );
   });
   readonly countryByCode = countryByCode;
+  get backupStorageNote(): string { return this.media.location === 'browser' ? 'Trips and photos are stored in this browser on this device. JSON export backs up trip details only; keep your original photos separately.' : 'Trip details are stored in this browser and photos in the project folder. JSON export backs up trip details only; keep a copy of your photo folder too.'; }
 
   constructor() {
     this.route.paramMap.subscribe((params) => {

@@ -56,6 +56,7 @@ function controller() {
   page.expensePhotoBusy=false;page.expensePhotoError='';page.receiptGallery=signal(null);page.photoError=signal('');
   trip.mediaIds=[];page.media={getRecord:async()=>null,delete:async()=>{}};
   page.flash=()=>{};
+  page.changeDetector={markForCheck:()=>{page.renderRequests=(page.renderRequests??0)+1;}};
   return page;
 }
 test('Add the cost defaults to today rather than the selected trip start date; editing keeps its date', () => {
@@ -122,6 +123,7 @@ test('partial upload failure rolls back uploaded files and preserves the draft f
   assert.equal(page.expenseEditorOpen(),true);
   assert.equal(page.expensePhotoBusy,false);
   assert.match(page.expensePhotoError,/Upload failed/);
+  assert.ok(page.renderRequests > 0, 'Async failure must update the zoneless Angular view');
 });
 
 test('failed expense persistence does not delete old receipts and rolls back only new uploads', async () => {

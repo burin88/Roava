@@ -17,10 +17,12 @@ interface MediaApiRecord {
 
 @Injectable()
 export class FileSystemMediaStorage implements MediaStorage {
+  readonly location = 'filesystem' as const;
   private readonly legacyStorage = inject(IndexedDbMediaStorage);
 
   async save(file: File, tripId: string, placeId?: string): Promise<StoredMedia> {
-    const response = await fetch('/api/media', {
+    if (file.size > 25 * 1024 * 1024) throw new Error('รูปภาพมีขนาดเกิน 25 MB กรุณาเลือกรูปที่เล็กลง');
+    return this.request('/api/media', {
       method: 'POST',
       headers: {
         'content-type': file.type,
@@ -30,16 +32,18 @@ export class FileSystemMediaStorage implements MediaStorage {
         ...(placeId ? { 'x-place-id': encodeURIComponent(placeId) } : {}),
       },
       body: file,
-    });
-    if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo upload failed'));
-    return this.toStoredMedia(await response.json() as MediaApiRecord);
+    }, async response => {
+      if (!response.ok) throw new Error(await this.errorMessage(response, 'อัปโหลดรูปภาพไม่สำเร็จ กรุณาลองอีกครั้ง'));
+      const record = await response.json() as MediaApiRecord;
+      if (!record.id || !record.url) throw new Error('เซิร์ฟเวอร์ตอบกลับข้อมูลรูปภาพไม่ครบ กรุณาลองอีกครั้ง');
+      return this.toStoredMedia(record);
+    }, 45000);
   }
 
   async get(id: string): Promise<Blob | null> {
     const record = await this.apiRecord(id);
     if (!record) return this.legacyStorage.get(id);
-    const response = await fetch(record.url);
-    return response.ok ? response.blob() : null;
+    return this.request(record.url, {}, async response => response.ok ? response.blob() : null);
   }
 
   async getRecord(id: string): Promise<StoredMedia | null> {
@@ -48,25 +52,44 @@ export class FileSystemMediaStorage implements MediaStorage {
   }
 
   async delete(id: string): Promise<void> {
-    const response = await fetch(`/api/media/${encodeURIComponent(id)}`, { method: 'DELETE' });
-    if (response.status === 404) {
-      await this.legacyStorage.delete(id);
-      return;
-    }
-    if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo deletion failed'));
+    await this.request(`/api/media/${encodeURIComponent(id)}`, { method: 'DELETE' }, async response => {
+      if (response.status === 404) { await this.legacyStorage.delete(id); return; }
+      if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo deletion failed'));
+    });
   }
 
   async clear(): Promise<void> {
-    const response = await fetch('/api/media', { method: 'DELETE' });
-    if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo cleanup failed'));
+    await this.request('/api/media', { method: 'DELETE' }, async response => {
+      if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo cleanup failed'));
+    });
     await this.legacyStorage.clear();
   }
 
   private async apiRecord(id: string): Promise<MediaApiRecord | null> {
-    const response = await fetch(`/api/media/${encodeURIComponent(id)}/meta`, { cache: 'no-store' });
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo metadata could not be loaded'));
-    return response.json() as Promise<MediaApiRecord>;
+    return this.request(`/api/media/${encodeURIComponent(id)}/meta`, { cache: 'no-store' }, async response => {
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo metadata could not be loaded'));
+      return response.json() as Promise<MediaApiRecord>;
+    });
+  }
+
+  /** Deadline includes reading the response body, not just receiving headers. */
+  private async request<T>(url: string, options: RequestInit, read: (response: Response) => Promise<T>, timeoutMs = 15000): Promise<T> {
+    const controller = new AbortController();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<T>((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(new Error('เซิร์ฟเวอร์รูปภาพตอบกลับช้าเกินไป กรุณาตรวจสอบการเชื่อมต่อแล้วลองบันทึกอีกครั้ง รูปที่เลือกยังอยู่'));
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([fetch(url, { ...options, signal: controller.signal }).then(read), deadline]);
+    } catch (error) {
+      if (error instanceof TypeError) throw new Error('ติดต่อเซิร์ฟเวอร์รูปภาพไม่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง');
+      if (error instanceof SyntaxError) throw new Error('เซิร์ฟเวอร์ตอบกลับไม่ใช่ข้อมูลรูปภาพ กรุณาตรวจสอบว่า API รูปภาพพร้อมใช้งาน');
+      throw error;
+    } finally { clearTimeout(timer); }
   }
 
   private toStoredMedia(record: MediaApiRecord): StoredMedia {
@@ -74,6 +97,8 @@ export class FileSystemMediaStorage implements MediaStorage {
   }
 
   private async errorMessage(response: Response, fallback: string): Promise<string> {
+    if ([502,503,504].includes(response.status)) return 'บริการบันทึกรูปภาพยังไม่พร้อม กรุณาลองใหม่อีกครั้ง';
+    if (response.status === 404) return 'ไม่พบ API รูปภาพบนเซิร์ฟเวอร์ที่กำลังใช้งาน';
     try { return (await response.json() as { error?: string }).error ?? fallback; }
     catch { return fallback; }
   }

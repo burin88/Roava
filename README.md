@@ -19,7 +19,8 @@ Open `http://localhost:4200`.
 - Country drill-down and City Memory pages
 - China province drill-down at `/country/CN`: click China in Asia to explore 31 mainland provincial-level regions, with visited areas inferred from trips, destination cities and place coordinates
 - Trip, place, expense and notes CRUD
-- Original photo files stored by the local media server in `img/travel-photos`
+- Development: original photos stored by the local media server in `img/travel-photos`
+- Production/static hosting: photos stored in IndexedDB in the current browser/device, without a media API
 - Structured travel data in `localStorage` under `travel-atlas:poc`
 - Local summary generation, travel statistics, JSON import/export
 - Multi-image photo import (up to 30 images), local Thai/English OCR, and reviewable trip-field analysis
@@ -28,6 +29,12 @@ Open `http://localhost:4200`.
 ## Storage boundaries
 
 UI features depend on `TravelRepository`, `MediaStorage`, `SummaryProvider`, `OcrProvider`, and `PhotoAnalysisProvider`. The POC provides local implementations for each boundary, so an API-backed implementation can replace local providers later without rewriting feature components.
+
+Production builds use `IndexedDbMediaStorage`, so static hosting such as Cloudflare
+Pages does not require a Node media API. Photos remain on the current device/browser
+and do not sync across devices. Clearing site data deletes browser-stored photos.
+JSON exports contain trip details and media references, not image blobs; keep the
+original images separately. Development with `npm start` retains the file-backed API.
 
 ## Smart photo import
 

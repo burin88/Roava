@@ -12,7 +12,9 @@
     "generate:china-map": "node ./scripts/generate-china-map.mjs",
     "test:china-map": "node --test ./scripts/test-china-map.mjs",
     "test:beijing-plan": "node --test ./scripts/test-beijing-plan.mjs",
-    "test:daily-expenses": "node --test ./scripts/test-daily-expenses.mjs"
+    "test:daily-expenses": "node --test ./scripts/test-daily-expenses.mjs",
+    "test:media-requests": "node --test ./scripts/test-media-requests.mjs",
+    "test:browser-media": "node --test ./scripts/test-browser-media.mjs"
   },
   "private": true,
   "packageManager": "npm@11.17.0",
@@ -41,6 +43,7 @@
     "@angular/cli": "^22.1.7",
     "@angular/compiler-cli": "^22.1.0",
     "d3-geo": "^3.1.1",
+    "fake-indexeddb": "^6.2.5",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
     "world-countries": "^5.1.0"

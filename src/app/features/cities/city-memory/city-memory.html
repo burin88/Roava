@@ -61,8 +61,8 @@
 
           <section class="memory-section">
             <div class="section-head"><div><span class="section-label">PHOTO MEMORY</span><h3>Your gallery</h3></div><label class="button secondary" [class.disabled]="photoBusy()">{{ photoBusy() ? 'Saving…' : '＋ Upload photos' }}<input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,image/bmp" [disabled]="photoBusy()" (change)="uploadPhotos($event)"></label></div>
-            @if (photoError()) {<div class="photo-error">! {{ photoError() }} <small>Start the app with <b>npm start</b> so the media server can write to img/travel-photos.</small></div>}
-            @if (!photoViews().length) {<label class="photo-empty" [class.disabled]="photoBusy()"><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,image/bmp" [disabled]="photoBusy()" (change)="uploadPhotos($event)"><span>▧</span><b>{{ photoBusy() ? 'Saving photos…' : 'Drop into your visual memory' }}</b><small>Original images are saved in the project at img/travel-photos.</small></label>} @else {<div class="gallery">@for (photo of photoViews(); track photo.id) {<figure><img [src]="photo.url" [alt]="photo.name" loading="lazy"><figcaption><span title="{{ photo.name }}">{{ photo.name }}</span><button type="button" [disabled]="photoBusy()" (click)="deletePhoto(photo)" [attr.aria-label]="'Delete ' + photo.name">×</button></figcaption></figure>}</div>}
+            @if (photoError()) {<div class="photo-error">! {{ photoError() }} <small>{{ mediaStorageNote }}</small></div>}
+            @if (!photoViews().length) {<label class="photo-empty" [class.disabled]="photoBusy()"><input type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,image/bmp" [disabled]="photoBusy()" (change)="uploadPhotos($event)"><span>▧</span><b>{{ photoBusy() ? 'Saving photos…' : 'Drop into your visual memory' }}</b><small>{{ mediaStorageNote }}</small></label>} @else {<div class="gallery">@for (photo of photoViews(); track photo.id) {<figure><img [src]="photo.url" [alt]="photo.name" loading="lazy"><figcaption><span title="{{ photo.name }}">{{ photo.name }}</span><button type="button" [disabled]="photoBusy()" (click)="deletePhoto(photo)" [attr.aria-label]="'Delete ' + photo.name">×</button></figcaption></figure>}</div>}
           </section>
         </main>
       }
@@ -161,13 +161,13 @@
       <label><span>Date</span><input class="expense-dark-text" name="spentAt" type="date" [(ngModel)]="expenseModel.spentAt" required></label>
       <label><span>Note</span><textarea class="expense-dark-text" name="expenseNote" rows="4" [(ngModel)]="expenseModel.note" placeholder="What was this for?"></textarea></label>
       <section class="expense-attachments" aria-label="รูปแนบค่าใช้จ่าย">
+        <p class="expense-storage-note">{{ mediaStorageNote }}</p>
         <div class="receipt-field-head"><strong>รูปภาพ / ใบเสร็จ</strong><label class="receipt-add" [class.disabled]="expensePhotoBusy">+ แนบรูป<input type="file" multiple accept="image/*" [disabled]="expensePhotoBusy" (change)="addExpensePhotos($event)"></label></div>
         @if (!expenseExistingPhotos.length && !expensePendingPhotos.length) {<label class="receipt-empty"><input type="file" multiple accept="image/*" [disabled]="expensePhotoBusy" (change)="addExpensePhotos($event)"><span aria-hidden="true">▧</span><strong>แนบใบเสร็จหรือรูปประกอบ</strong><small>เลือกได้หลายรูป · รูปจะถูกบันทึกเมื่อกด Save expense</small></label>}
         @else {<div class="receipt-draft-grid">@for (photo of expenseExistingPhotos; track photo.id) {<figure><a [href]="photo.url" target="_blank" rel="noopener noreferrer"><img [src]="photo.url" [alt]="photo.name"></a><button type="button" [disabled]="expensePhotoBusy" (click)="removeExistingExpensePhoto(photo)" [attr.aria-label]="'เอารูป ' + photo.name + ' ออกจากรายการ'">×</button></figure>}@for (photo of expensePendingPhotos; track photo.url) {<figure><img [src]="photo.url" [alt]="photo.file.name"><span>ใหม่</span><button type="button" [disabled]="expensePhotoBusy" (click)="removePendingExpensePhoto(photo)" [attr.aria-label]="'เอารูป ' + photo.file.name + ' ออกจากรายการ'">×</button></figure>}</div>}
-        @if (expensePhotoError) {<p class="receipt-error" role="alert">{{ expensePhotoError }}</p>}
       </section>
       </div>
-      <footer><button type="button" class="button ghost" (click)="closeExpenseEditor()" [disabled]="expensePhotoBusy">Cancel</button><button class="button primary" [disabled]="expensePhotoBusy">{{ expensePhotoBusy ? 'กำลังบันทึก…' : 'Save expense' }}</button></footer>
+      <footer>@if (expensePhotoError) {<p class="expense-save-feedback" role="alert">{{ expensePhotoError }}</p>}@if (expensePhotoBusy && expenseUploadProgress) {<p class="expense-upload-status" role="status">{{ expenseUploadProgress }}</p>}<button type="button" class="button ghost" (click)="closeExpenseEditor()" [disabled]="expensePhotoBusy">Cancel</button><button class="button primary" [disabled]="expensePhotoBusy">{{ expensePhotoBusy ? 'กำลังบันทึก…' : 'Save expense' }}</button></footer>
     </form>
   </div>
 }

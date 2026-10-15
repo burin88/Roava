@@ -1,0 +1,58 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import ts from 'typescript';
+
+const js=ts.transpileModule(fs.readFileSync('src/app/core/storage/file-system-media.storage.ts','utf8'),{
+  compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,experimentalDecorators:true},
+}).outputText;
+function storageWith(fetch) {
+  const exports={};
+  vm.runInNewContext(js,{exports,fetch,AbortController,setTimeout,clearTimeout,Error,TypeError,SyntaxError,
+    require:name=>name==='@angular/core'?{Injectable:()=>target=>target,inject:()=>({})}:{},
+  });
+  return new exports.FileSystemMediaStorage();
+}
+const file={name:'ใบเสร็จ.jpg',type:'image/jpeg',size:50,lastModified:Date.parse('2026-10-15')};
+const response=(status,value)=>({status,ok:status>=200&&status<300,json:async()=>value});
+
+test('upload retains its API contract and returns the saved image record',async()=>{
+  let sent;
+  const storage=storageWith(async(url,options)=>{sent={url,options};return response(201,{id:'photo',url:'/img/photo.jpg'});});
+  assert.equal((await storage.save(file,'trip','place')).id,'photo');
+  assert.equal(sent.url,'/api/media');
+  assert.equal(sent.options.body,file);
+  assert.equal(decodeURIComponent(sent.options.headers['x-file-name']),file.name);
+  assert.equal(sent.options.headers['x-trip-id'],'trip');
+  assert.ok(sent.options.signal);
+});
+test('a server that never responds is aborted and returns a bounded timeout error',async()=>{
+  let signal;
+  const storage=storageWith(async(_,options)=>{signal=options.signal;return new Promise(()=>{});});
+  await assert.rejects(storage.request('/api/media',{},async r=>r.json(),10),/ตอบกลับช้าเกินไป/);
+  assert.equal(signal.aborted,true);
+});
+test('the timeout also covers a response body that never completes',async()=>{
+  const storage=storageWith(async()=>({json:()=>new Promise(()=>{})}));
+  await assert.rejects(storage.request('/api/media',{},async r=>r.json(),10),/ตอบกลับช้าเกินไป/);
+});
+test('network failures and unavailable proxy services produce actionable errors',async()=>{
+  const disconnected=storageWith(async()=>{throw new TypeError('Failed to fetch');});
+  await assert.rejects(disconnected.save(file,'trip'),/ติดต่อเซิร์ฟเวอร์รูปภาพไม่ได้/);
+  const unavailable=storageWith(async()=>response(503,{}));
+  await assert.rejects(unavailable.save(file,'trip'),/ยังไม่พร้อม/);
+});
+test('a missing API or HTML response is distinguished from a saved image',async()=>{
+  const missing=storageWith(async()=>response(404,{}));
+  await assert.rejects(missing.save(file,'trip'),/ไม่พบ API/);
+  const html=storageWith(async()=>({ok:true,json:async()=>{throw new SyntaxError('Unexpected token <');}}));
+  await assert.rejects(html.save(file,'trip'),/ไม่ใช่ข้อมูลรูปภาพ/);
+});
+test('oversized files are rejected without uploading and server validation errors survive',async()=>{
+  let calls=0;
+  const storage=storageWith(async()=>{calls++;return response(415,{error:'Unsupported image type'});});
+  await assert.rejects(storage.save({...file,size:26*1024*1024},'trip'),/25 MB/);
+  assert.equal(calls,0);
+  await assert.rejects(storage.save(file,'trip'),/Unsupported image type/);
+});
