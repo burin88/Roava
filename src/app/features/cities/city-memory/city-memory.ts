@@ -10,12 +10,13 @@ import { TravelStore } from '../../../core/state/travel-store';
 import { TripEditor } from '../../trips/trip-editor/trip-editor';
 import { PhotoImporter } from '../../media/photo-importer/photo-importer';
 import { expenseTotals, groupTravelDays, todayInBangkok, TravelDayGroup } from '../../../core/models/daily-expenses';
+import { ExpenseDialogViewport } from './expense-dialog-viewport';
 
 interface PhotoView { id: string; url: string; name: string; objectUrl: boolean; }
 interface PendingPlacePhoto { file: File; url: string; }
 type TimeFormat = '24h' | '12h';
 
-@Component({ selector: 'city-memory', standalone: true, imports: [CommonModule, FormsModule, RouterLink, DatePipe, DecimalPipe, TripEditor, PhotoImporter], templateUrl: './city-memory.html', styleUrl: './city-memory.css' })
+@Component({ selector: 'city-memory', standalone: true, imports: [CommonModule, FormsModule, RouterLink, DatePipe, DecimalPipe, TripEditor, PhotoImporter, ExpenseDialogViewport], templateUrl: './city-memory.html', styleUrl: './city-memory.css' })
 export class CityMemory implements OnDestroy {
   readonly store = inject(TravelStore); private readonly route = inject(ActivatedRoute); private readonly router = inject(Router); private readonly media = inject(MediaStorage); readonly summaries = inject(SummaryProvider);
   readonly countryCode = signal(''); readonly cityCode = signal(''); readonly editorOpen = signal(false); readonly photoImporterOpen = signal(false); readonly editingTrip = signal<Trip | null>(null); readonly selectedTripId = signal('');
