@@ -144,7 +144,7 @@ test('API validates pagination/JSON/IDs and keeps unsupported methods protected'
   assert.equal((await f.send('requirements/no-id')).status,404);
   assert.equal((await f.send('requirements','DELETE')).status,405);
 });
-test('all supported Requirements operations allow anonymous access; unrelated APIs and DELETE remain protected',async()=>{
+test('Requirements route directly without auth checks; unsupported methods return 405 and unrelated APIs require auth',async()=>{
   const f=fixture();
   for(const path of ['requirements',`requirements/${id}`,'masters/requirement-types','masters/requirement-priorities','masters/requirement-statuses']) {
     assert.equal((await f.send(path,'GET',undefined,false)).status,200);
@@ -156,7 +156,8 @@ test('all supported Requirements operations allow anonymous access; unrelated AP
   assert.equal(f.calls.at(-1).body.modified_by,'anonymous'); assert.equal(f.calls.at(-1).body.created_by,undefined);
   assert.equal((await f.send(`requirements/${id}/prs`,'POST',{provider:'GITHUB',pr_url:'https://example.com/new-pr'},false)).status,201);
   assert.equal(f.calls.at(-1).body.created_by,'anonymous'); assert.equal(f.calls.at(-1).body.requirement_id,id);
-  for(const [path,method] of [['media','GET'],['files','GET'],['requirements','DELETE'],[`requirement-prs/${prId}`,'DELETE'],['masters/requirement-types','POST']]) assert.equal((await f.send(path,method,method==='GET'?undefined:{},false)).status,401);
+  for(const path of ['media','files']) assert.equal((await f.send(path,'GET',undefined,false)).status,401);
+  for(const [path,method] of [['requirements','DELETE'],[`requirement-prs/${prId}`,'DELETE'],['masters/requirement-types','POST']]) assert.equal((await f.send(path,method,{},false)).status,405);
   const updated=await f.send(`requirement-prs/${prId}`,'PATCH',{pr_status:'MERGED',modified_by:'forged',created_by:'forged',requirement_id:other},false);
   assert.equal(updated.status,200); assert.equal(f.calls.at(-1).body.modified_by,'anonymous'); assert.equal(f.calls.at(-1).body.requirement_id,undefined); assert.equal(f.calls.at(-1).body.created_by,undefined);
   assert.ok(!f.calls.some(call=>call.table==='user'));
@@ -172,6 +173,19 @@ test('API list sorts and paginates at DB, returns filtered count, quotes search 
   assert.equal(call.params.get('offset'),'20'); assert.equal(call.params.get('status'),'eq.PENDING');
   assert.ok(call.params.get('or').includes('x\\"'));
 });
+test('Requirements ignores supplied Authorization and never calls Auth or forwards credentials',async()=>{
+  for (const authorization of [null,'Bearer expired-token','malformed-header']) {
+    const calls=[];
+    const response=await handleAuthenticatedApi(new Request('https://app.test/api/requirements',{
+      headers:authorization?{authorization}:{},
+    }),()=>{throw Error('No storage needed');},testEnv,async(url,options)=>{
+      calls.push(url); assert.ok(!url.includes('/auth/'));
+      assert.equal(new Headers(options.headers).has('authorization'),false);
+      return Response.json([],{headers:{'content-range':'*/0'}});
+    });
+    assert.equal(response.status,200); assert.equal(calls.length,1);
+  }
+});
 test('API lookups use valid and database sort; detail returns PRs in descending order',async()=>{
   const f=fixture();
   for(const master of ['types','priorities','statuses']) { assert.equal((await f.send(`masters/requirement-${master}`)).status,200); assert.equal(f.calls.at(-1).params.get('valid'),'eq.true'); assert.equal(f.calls.at(-1).params.get('order'),'sort_sequence.desc,code.asc'); }
@@ -180,7 +194,7 @@ test('API lookups use valid and database sort; detail returns PRs in descending 
 test('API create defaults, trims title and excludes forged audit/identity',async()=>{
   const f=fixture(); const response=await f.send('requirements','POST',{ title:'  good  ',created_by:'attacker',id:other,valid:false });
   assert.equal(response.status,201);
-  const body=f.calls.at(-1).body; assert.equal(body.title,'good'); assert.equal(body.created_by,testOwner); assert.equal(body.id,undefined); assert.equal(body.valid,undefined);
+  const body=f.calls.at(-1).body; assert.equal(body.title,'good'); assert.equal(body.created_by,'anonymous'); assert.equal(body.id,undefined); assert.equal(body.valid,undefined);
   assert.equal(body.requirement_type,'FEATURE'); assert.equal(body.priority,'MEDIUM'); assert.equal(body.status,'PENDING');
 });
 test('API validates fields, inactive masters and preserves unchanged inactive values',async()=>{
@@ -194,7 +208,7 @@ test('API PRs validate HTTPS, enums, lengths and never accept a different parent
   const f=fixture(); assert.equal((await f.send(`requirements/${id}/prs`,'POST',{provider:'GITHUB',pr_url:'https://example.com',requirement_id:other})).status,201);
   assert.equal(f.calls.at(-1).body.requirement_id,id); assert.equal(f.calls.at(-1).body.pr_status,'OPEN');
   assert.equal((await f.send(`requirement-prs/${prId}`,'PATCH',{pr_status:'MERGED',requirement_id:other,created_by:'fake'})).status,200);
-  assert.equal(f.calls.at(-1).body.requirement_id,undefined); assert.equal(f.calls.at(-1).body.created_by,undefined); assert.equal(f.calls.at(-1).body.modified_by,testOwner);
+  assert.equal(f.calls.at(-1).body.requirement_id,undefined); assert.equal(f.calls.at(-1).body.created_by,undefined); assert.equal(f.calls.at(-1).body.modified_by,'anonymous');
 });
 test('API maps duplicate PR to 409 without SQL details and missing/inactive records to 404',async()=>{
   const f=fixture({duplicate:true}); const response=await f.send(`requirements/${id}/prs`,'POST',{provider:'GITHUB',pr_url:'https://example.com'});
@@ -212,8 +226,8 @@ test('Node and Cloudflare mount requirements without requiring R2',async()=>{
   try {
     const response=await fetch(`http://127.0.0.1:${server.address().port}/api/requirements`,{headers:{authorization:'Bearer token'}});
     assert.equal(response.status,200); assert.deepEqual((await response.json()).items,[]);
-    // Unsupported anonymous deletion remains protected in the Pages adapter too.
-    assert.equal((await onRequest({request:new Request('https://app.test/api/requirements',{method:'DELETE'}),env:testEnv})).status,401);
+    // Unsupported methods are rejected by the resource handler without Auth calls.
+    assert.equal((await onRequest({request:new Request('https://app.test/api/requirements',{method:'DELETE'}),env:testEnv})).status,405);
     const unavailable=await handleAuthenticatedApi(new Request('https://app.test/api/requirements',{headers:{authorization:'Bearer token'}}),storage,testEnv,async(url)=>{
       if(new URL(url).pathname==='/auth/v1/user') return Response.json({id:testOwner});
       return Response.json({message:'secret internal SQL and key'},{status:500});
@@ -228,6 +242,7 @@ test('UI loads masters, opens empty-state creation, retains input on errors and 
   const exports={}; let rejectSave=false; const requests=[];
   const record={id,title:'new',description:'',requirement_type:'FEATURE',priority:'MEDIUM',status:'PENDING',prs:[]};
   const fetch=async(url,options)=>{
+    assert.equal(new Headers(options.headers).has('authorization'),false);
     requests.push(url);
     if(options.method==='POST' && rejectSave) return Response.json({error:'invalid',fields:{title:'invalid'}},{status:422});
     if(url.includes('masters/')) return Response.json([{code:'FEATURE',name:'Feature'}]);

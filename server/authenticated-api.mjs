@@ -1,7 +1,7 @@
 import { publicSupabaseConfig } from './config/supabase-config.mjs';
 import { handleStorageApi } from './storage-api.mjs';
 import { MediaStorageService } from './services/media-storage.service.mjs';
-import { handleRequirementsApi, isAnonymousRequirementsRequest } from './requirements-api.mjs';
+import { handleRequirementsApi } from './requirements-api.mjs';
 
 const json = (status, value) => Response.json(value, { status, headers: { 'cache-control': 'no-store' } });
 function lazyStorage(factory) {
@@ -12,7 +12,7 @@ function lazyStorage(factory) {
   }]));
 }
 
-/** Validate access tokens with Auth, then use that token for DB access under RLS. */
+/** Public Requirements routing; other resources validate access tokens and use RLS. */
 export async function handleAuthenticatedApi(request, storageFactory, env = process.env, fetcher = fetch) {
   try {
     const config = publicSupabaseConfig(env);
@@ -20,18 +20,17 @@ export async function handleAuthenticatedApi(request, storageFactory, env = proc
     if (pathname === '/api/config') {
       return request.method === 'GET' ? json(200, config) : json(405, { error: 'Method not allowed' });
     }
+    const requirementResponse = await handleRequirementsApi(request, {
+      config, headers: { apikey: config.publishableKey, 'content-type': 'application/json' }, fetcher,
+    });
+    if (requirementResponse) return requirementResponse;
     const authorization = request.headers.get('authorization');
-    if (!authorization && isAnonymousRequirementsRequest(request)) {
-      return handleRequirementsApi(request, { config, headers: { apikey: config.publishableKey, 'content-type': 'application/json' }, user: null, fetcher });
-    }
     if (!authorization?.startsWith('Bearer ')) return json(401, { error: 'กรุณาเข้าสู่ระบบ' });
     const headers = { apikey: config.publishableKey, authorization, 'content-type': 'application/json' };
     const userResponse = await fetcher(`${config.url}/auth/v1/user`, { headers, signal: AbortSignal.timeout(15000) });
     if (!userResponse.ok) return json(userResponse.status >= 500 ? 502 : 401, { error: 'ตรวจสอบบัญชีไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง' });
     const user = await userResponse.json();
     if (!user.id) return json(401, { error: 'Invalid session' });
-    const requirementResponse = await handleRequirementsApi(request, { config, headers, user, fetcher });
-    if (requirementResponse) return requirementResponse;
     async function db(table, query = '', method = 'GET', body, prefer) {
       const response = await fetcher(`${config.url}/rest/v1/${table}${query}`, {
         method, headers: { ...headers, ...(prefer ? { prefer } : {}) },

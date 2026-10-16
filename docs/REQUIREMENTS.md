@@ -4,7 +4,7 @@ Current implementation: shared Requirements and related PR management with anony
 
 ## Current deployment status
 
-Code and SQL are prepared for release. Feature/auth/media tests pass (24 tests), and production build passes using `tmp/requirements-public-build` with existing bundle/style warnings. Source publication does not install the remote database policies; live anonymous behavior still requires SQL installation and application deployment.
+Code and SQL are prepared for release. Feature/auth/media tests pass (25 tests), and production build passes using `tmp/requirements-direct-build` with existing bundle/style warnings. Source publication does not install the remote database policies; live anonymous behavior still requires SQL installation and application deployment.
 
 The remote project `zddtmisfzncwxaklhyvc` has the base authenticated policies installed. Anonymous access is not installed. Automatic approval review rejected the anonymous SQL migration because public access to all active Requirements/PRs and anonymous creation/updates to existing records need explicit approval of that data scope. No remote permission changes were applied in this update. Live third-party requests and visual browser acceptance remain unverified.
 
@@ -12,7 +12,9 @@ The remote project `zddtmisfzncwxaklhyvc` has the base authenticated policies in
 
 All supported Requirements API operations accept requests without an Authorization header. This is a shared public backlog: every active Requirement and related active PR is readable and editable by anonymous callers, including previously created records. Responses include titles, descriptions, URLs and audit metadata. Master data is read-only; master lookup endpoints return active options while historical joins can read inactive masters.
 
-Anonymous writes receive `created_by` / `modified_by = anonymous`. Database triggers generate creation identity/time, preserve creation metadata on updates and set modification metadata. Signed-in requests retain validated user identity for audit, while public policies permit access to the shared backlog. An invalid supplied bearer token is rejected; callers wanting anonymous access should omit Authorization entirely.
+Requirements, PR and related master routes dispatch directly to their resource handler before authentication. There is no AllowAnonymous method/path authorization check and no token validation for these resources. Supplied Authorization headers are ignored and never forwarded to Supabase. The Requirements UI does not initialize Auth or request/send a token. Unsupported methods still return 405 from the resource handler; input validation, missing-record checks and database error handling remain.
+
+All application writes receive `created_by` / `modified_by = anonymous`, regardless of browser login. Database triggers generate creation identity/time, preserve creation metadata on updates and set modification metadata. Direct Supabase clients remain subject to the configured database role, grants and RLS. Removing API checks does not bypass RLS or grant the anon database role new privileges.
 
 Media, files, travel data and other APIs retain existing authentication and account isolation. No DELETE endpoint or public delete policy is introduced. Browser and backend use only the existing publishable/anon key; no service-role key is used.
 
@@ -74,8 +76,8 @@ These examples require deployment and public database setup first. They are back
 
 ## Files and tests
 
-- `server/requirements-api.mjs`: public endpoint allowlist, handlers, input validation and database requests.
-- `server/authenticated-api.mjs`: anonymous dispatch only for the Requirements allowlist; optional validated bearer identity otherwise.
+- `server/requirements-api.mjs`: resource routing, handlers, input validation and database requests, without authentication checks.
+- `server/authenticated-api.mjs`: Requirements dispatch before Auth; other resources still validate bearer identity.
 - `server/node-storage-api.mjs`: local Node mounting; Cloudflare uses the existing shared Pages function.
 - `src/app/features/requirements/requirements.{ts,html,css}`: API-backed list, filters, forms, PRs, pagination and loading/error/empty states.
 - `src/app/app.{ts,html}`, `src/app/app.routes.ts`: public page routing and navigation.
@@ -85,6 +87,6 @@ These examples require deployment and public database setup first. They are back
 
 Run `npm.cmd run test:requirements`. Database tests use the same optional PGlite test fixture location as the existing repository tests. If missing, install it with `npm.cmd install --prefix tmp/roava-postgres-test --no-save @electric-sql/pglite@0.3.14`.
 
-Related verification: `node --test scripts/test-requirements.mjs scripts/test-supabase-api.mjs scripts/test-r2-media.mjs` (24 tests passed). Coverage includes public create/read/update for both resources, field validation, URL uniqueness, immutable PR parent, anonymous audit forgery protection, unchanged creation audit, disabled masters, database ordering/pagination, shared access from signed-in accounts, no anonymous delete/master mutations, and unchanged protection of media/file APIs. UI state tests are not visual browser acceptance.
+Related verification: `node --test scripts/test-requirements.mjs scripts/test-supabase-api.mjs scripts/test-r2-media.mjs` (25 tests passed). Coverage includes public create/read/update for both resources, ignored Authorization headers without Auth calls, field validation, URL uniqueness, immutable PR parent, anonymous audit forgery protection, unchanged creation audit, disabled masters, database ordering/pagination, shared access from signed-in database accounts, unsupported DELETE/master mutations, and unchanged protection of media/file APIs. UI state tests are not visual browser acceptance.
 
 After deployment, verify anonymous create -> add PR -> edit PR -> edit Requirement, lookup loading, empty-state add buttons, validation preservation, filters/pagination, inactive master history, mobile layout, keyboard navigation and safe external links. Verify that media/files still require login. Keep `.env` and private import SQL out of Git.

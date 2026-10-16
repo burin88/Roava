@@ -2,17 +2,9 @@ const masters = { 'requirement-types': 'master_requirement_type', 'requirement-p
 const fields = { requirement_type: masters['requirement-types'], priority: masters['requirement-priorities'], status: masters['requirement-statuses'] };
 const fail = (status, message, fields = {}) => { throw Object.assign(new Error(message), { status, fields }); };
 const json = (status, value) => Response.json(value, { status, headers: { 'cache-control': 'no-store' } });
-export function isAnonymousRequirementsRequest(request) {
-  const path = new URL(request.url).pathname;
-  if (request.method === 'GET') return /^\/api\/(?:requirements(?:\/[^/]+)?|masters\/requirement-(?:types|priorities|statuses))$/.test(path);
-  if (request.method === 'POST') return /^\/api\/requirements(?:\/[^/]+\/prs)?$/.test(path);
-  if (request.method === 'PATCH') return /^\/api\/(?:requirements|requirement-prs)\/[^/]+$/.test(path);
-  return false;
-}
-export async function handleRequirementsApi(request, { config, headers, user, fetcher }) {
+export async function handleRequirementsApi(request, { config, headers, fetcher }) {
   const url = new URL(request.url), path = url.pathname;
   if (!/^\/api\/(requirements|requirement-prs|masters)(\/|$)/.test(path)) return null;
-  if (!user && !isAnonymousRequirementsRequest(request)) return json(401, { error: 'กรุณาเข้าสู่ระบบ' });
   try {
     async function db(table, params = {}, method = 'GET', body, count = false) {
       const response = await fetcher(`${config.url}/rest/v1/${table}?${new URLSearchParams(params)}`, {
@@ -111,8 +103,8 @@ export async function handleRequirementsApi(request, { config, headers, user, fe
       }
     }
     if (Object.keys(errors).length) fail(422, 'กรุณาตรวจสอบข้อมูล', errors);
-    if (creating) data.created_by = user?.id ?? 'anonymous';
-    else { data.modified_by = user?.id ?? 'anonymous'; data.modified_at = new Date().toISOString(); }
+    if (creating) data.created_by = 'anonymous';
+    else { data.modified_by = 'anonymous'; data.modified_at = new Date().toISOString(); }
     const result = await db(table, creating ? {} : { id: `eq.${id}`, valid: 'eq.true' }, creating ? 'POST' : 'PATCH', data);
     if (!result.rows[0]) fail(404, 'ไม่พบรายการ');
     return json(creating ? 201 : 200, result.rows[0]);

@@ -1,7 +1,6 @@
-import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { SupabaseService } from '../../core/auth/supabase.service';
 
 interface Master { id: string; code: string; name: string; sort_sequence: number }
 interface RequirementForm { title: string; description: string; requirement_type: string; priority: string; status: string }
@@ -16,7 +15,6 @@ const blank = (): RequirementForm => ({ title: '', description: '', requirement_
   templateUrl: './requirements.html', styleUrl: './requirements.css',
 })
 export class Requirements {
-  private readonly auth = inject(SupabaseService);
   @ViewChild('titleInput') titleInput?: ElementRef<HTMLInputElement>;
   @ViewChild('prUrlInput') prUrlInput?: ElementRef<HTMLInputElement>;
   @ViewChild('addButton') addButton?: ElementRef<HTMLButtonElement>;
@@ -33,10 +31,8 @@ export class Requirements {
   constructor() { void this.initialize(); }
   private blankPR(): PRForm { return { provider: 'GITHUB', repository_name: '', pr_number: '', pr_url: '', pr_status: 'OPEN' }; }
   private async api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-    await this.auth.initialized;
-    const authorization: Record<string, string> = this.auth.user() ? { authorization: `Bearer ${await this.auth.token()}` } : {};
     const response = await fetch(`/api/${path}`, { method, cache: 'no-store', headers: {
-      ...authorization, 'content-type': 'application/json',
+      'content-type': 'application/json',
     }, ...(body ? { body: JSON.stringify(body) } : {}) });
     const data = await response.json();
     if (!response.ok) throw Object.assign(new Error(typeof data.error === 'string' ? data.error : 'ดำเนินการไม่สำเร็จ'), { fields: data.fields || {} });
