@@ -18,7 +18,7 @@ test('PostgreSQL: repeatable schema, database ordering/pagination, audit, inacti
   try {
     await db.exec(`create role anon; create role authenticated; create schema auth;
       create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
-      grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
+      grant usage on schema auth to authenticated,anon; grant execute on function auth.uid() to authenticated,anon;`);
     await db.exec(sql); await db.exec(sql);
     const scalar = async query => Object.values((await db.query(query)).rows[0])[0];
     const login = async user => db.exec(`reset role; select set_config('request.jwt.claim.sub','${user}',false); set role authenticated`);
@@ -77,6 +77,40 @@ test('PostgreSQL: repeatable schema, database ordering/pagination, audit, inacti
     assert.equal(await scalar(`select count(*)::int from requirement_listing where id='${id}'`),0);
     await assert.rejects(db.exec("insert into requirements(title,created_by) values ('anonymous','fake')"));
     await assert.rejects(db.exec("update requirements set title='anonymous'"));
+    await admin();
+    await db.exec(`insert into requirement_prs(id,requirement_id,provider,pr_url,created_by) values ('${prId}','${inserted.id}','GITHUB','https://github.com/a/b/pull/anonymous','${testOwner}')`);
+    const anonymousUpdate=await readFile(new URL('../database/requirement-prs-anonymous-update.sql',import.meta.url),'utf8');
+    await db.exec(anonymousUpdate); await db.exec(anonymousUpdate); await db.exec('set role anon');
+    await db.exec(`update requirement_prs set pr_status='MERGED',modified_by='forged' where id='${prId}'`);
+    const updatedPR=(await db.query(`select * from requirement_prs where id='${prId}'`)).rows[0];
+    assert.equal(updatedPR.pr_status,'MERGED'); assert.equal(updatedPR.modified_by,'anonymous'); assert.equal(updatedPR.created_by,testOwner); assert.ok(updatedPR.modified_at);
+    for(const change of ["requirement_id='00000000-0000-4000-8000-000000000001'","valid=false","created_by='forged'","pr_url='http://unsafe'","provider='OTHER'"]) await assert.rejects(db.exec(`update requirement_prs set ${change} where id='${prId}'`));
+    await assert.rejects(db.exec(`insert into requirement_prs(requirement_id,provider,pr_url,created_by) values ('${inserted.id}','GITHUB','https://example.com','fake')`));
+    await assert.rejects(db.exec('delete from requirement_prs'));
+    assert.equal(await scalar(`select status from requirements where id='${inserted.id}'`),'PENDING');
+    await admin();
+    const publicAccess=await readFile(new URL('../database/requirements-anonymous.sql',import.meta.url),'utf8');
+    await db.exec(publicAccess); await db.exec(publicAccess); await db.exec('set role anon');
+    const publicRequirement=(await db.query("insert into requirements(title,requirement_type,created_by) values ('public task','BUG','forged') returning *")).rows[0];
+    assert.equal(publicRequirement.created_by,'anonymous'); assert.equal(publicRequirement.modified_at,null); assert.equal(publicRequirement.valid,true);
+    await db.exec(`update requirements set title='public edit',status='IN_PROGRESS',modified_by='forged' where id='${publicRequirement.id}'`);
+    const publicEdit=(await db.query(`select * from requirements where id='${publicRequirement.id}'`)).rows[0];
+    assert.equal(publicEdit.title,'public edit'); assert.equal(publicEdit.modified_by,'anonymous'); assert.equal(publicEdit.created_by,'anonymous'); assert.deepEqual(publicEdit.created_at,publicRequirement.created_at);
+    const publicPR=(await db.query(`insert into requirement_prs(requirement_id,provider,pr_url,created_by) values ('${publicRequirement.id}','GITHUB','https://example.com/public-pr','forged') returning *`)).rows[0];
+    assert.equal(publicPR.created_by,'anonymous');
+    await db.exec(`update requirement_prs set pr_status='MERGED' where id='${publicPR.id}'`);
+    assert.equal(await scalar(`select modified_by from requirement_prs where id='${publicPR.id}'`),'anonymous');
+    assert.equal(await scalar(`select status from requirements where id='${publicRequirement.id}'`),'IN_PROGRESS');
+    await assert.rejects(db.exec(`insert into requirement_prs(requirement_id,provider,pr_url,created_by) values ('${publicRequirement.id}','GITHUB','https://example.com/public-pr','forged')`),e=>e.code==='23505');
+    await assert.rejects(db.exec("insert into requirements(title,requirement_type,created_by) values ('bad','FEATURE','anonymous')"));
+    await assert.rejects(db.exec("insert into requirements(title,requirement_type,created_by) values ('  ','BUG','anonymous')"));
+    await assert.rejects(db.exec(`update requirements set created_by='forged' where id='${publicRequirement.id}'`));
+    await assert.rejects(db.exec('delete from requirements')); await assert.rejects(db.exec('delete from requirement_prs'));
+    await assert.rejects(db.exec("update master_requirement_type set name='forged'"));
+    await login(other);
+    assert.equal(await scalar(`select title from requirements where id='${publicRequirement.id}'`),'public edit');
+    await db.exec(`update requirements set title='signed-in edit' where id='${publicRequirement.id}'`);
+    assert.equal(await scalar(`select modified_by from requirements where id='${publicRequirement.id}'`),other);
   } finally { await db.close(); }
 });
 
@@ -101,22 +135,34 @@ function fixture({ inactive = false, duplicate = false, missing = false } = {}) 
   }), () => { throw Error('R2 must not be needed'); }, testEnv, fetcher);
   return { calls, send };
 }
-test('API requires authentication for writes and validates pagination/JSON/IDs', async () => {
+test('API validates pagination/JSON/IDs and keeps unsupported methods protected', async () => {
   const f = fixture();
-  assert.equal((await f.send('requirements','POST',{ title:'ok' },false)).status,401);
+  assert.equal((await f.send('requirements','POST',{ title:'ok' },false)).status,201);
   for (const query of ['page=0','page=abc','page_size=101','page=1.2','status=X%22,priority.eq.HIGH']) assert.equal((await f.send(`requirements?${query}`)).status,400);
   assert.equal((await f.send('requirements','POST','{')).status,400);
   assert.equal((await f.send('requirements','POST',[])).status,400);
   assert.equal((await f.send('requirements/no-id')).status,404);
   assert.equal((await f.send('requirements','DELETE')).status,405);
 });
-test('AllowAnonymous is restricted to Requirement GETs, without calling Auth or sending a user token',async()=>{
+test('all supported Requirements operations allow anonymous access; unrelated APIs and DELETE remain protected',async()=>{
   const f=fixture();
   for(const path of ['requirements',`requirements/${id}`,'masters/requirement-types','masters/requirement-priorities','masters/requirement-statuses']) {
     assert.equal((await f.send(path,'GET',undefined,false)).status,200);
   }
   assert.ok(!f.calls.some(call=>call.table==='user'));
-  for(const [path,method] of [[`requirements/${id}`,'PATCH'],[`requirements/${id}/prs`,'POST'],[`requirement-prs/${prId}`,'PATCH'],['media','GET'],['files','GET']]) assert.equal((await f.send(path,method,method==='GET'?undefined:{},false)).status,401);
+  assert.equal((await f.send('requirements','POST',{title:'public',created_by:'forged',valid:false},false)).status,201);
+  assert.equal(f.calls.at(-1).body.created_by,'anonymous'); assert.equal(f.calls.at(-1).body.valid,undefined);
+  assert.equal((await f.send(`requirements/${id}`,'PATCH',{title:'public edit',created_by:'forged'},false)).status,200);
+  assert.equal(f.calls.at(-1).body.modified_by,'anonymous'); assert.equal(f.calls.at(-1).body.created_by,undefined);
+  assert.equal((await f.send(`requirements/${id}/prs`,'POST',{provider:'GITHUB',pr_url:'https://example.com/new-pr'},false)).status,201);
+  assert.equal(f.calls.at(-1).body.created_by,'anonymous'); assert.equal(f.calls.at(-1).body.requirement_id,id);
+  for(const [path,method] of [['media','GET'],['files','GET'],['requirements','DELETE'],[`requirement-prs/${prId}`,'DELETE'],['masters/requirement-types','POST']]) assert.equal((await f.send(path,method,method==='GET'?undefined:{},false)).status,401);
+  const updated=await f.send(`requirement-prs/${prId}`,'PATCH',{pr_status:'MERGED',modified_by:'forged',created_by:'forged',requirement_id:other},false);
+  assert.equal(updated.status,200); assert.equal(f.calls.at(-1).body.modified_by,'anonymous'); assert.equal(f.calls.at(-1).body.requirement_id,undefined); assert.equal(f.calls.at(-1).body.created_by,undefined);
+  assert.ok(!f.calls.some(call=>call.table==='user'));
+  assert.equal((await f.send(`requirement-prs/${prId}`,'PATCH',{pr_url:'http://bad'},false)).status,422);
+  assert.equal((await fixture({duplicate:true}).send(`requirement-prs/${prId}`,'PATCH',{pr_url:'https://example.com'},false)).status,409);
+  assert.equal((await fixture({missing:true}).send(`requirement-prs/${prId}`,'PATCH',{pr_status:'MERGED'},false)).status,404);
 });
 test('API list sorts and paginates at DB, returns filtered count, quotes search grammar',async()=>{
   const f=fixture(); const response=await f.send('requirements?page=2&page_size=20&status=PENDING&search='+encodeURIComponent('x"),status.eq.COMPLETED,('));
@@ -166,8 +212,8 @@ test('Node and Cloudflare mount requirements without requiring R2',async()=>{
   try {
     const response=await fetch(`http://127.0.0.1:${server.address().port}/api/requirements`,{headers:{authorization:'Bearer token'}});
     assert.equal(response.status,200); assert.deepEqual((await response.json()).items,[]);
-    // Anonymous writes remain protected in the Pages adapter too.
-    assert.equal((await onRequest({request:new Request('https://app.test/api/requirements',{method:'POST'}),env:testEnv})).status,401);
+    // Unsupported anonymous deletion remains protected in the Pages adapter too.
+    assert.equal((await onRequest({request:new Request('https://app.test/api/requirements',{method:'DELETE'}),env:testEnv})).status,401);
     const unavailable=await handleAuthenticatedApi(new Request('https://app.test/api/requirements',{headers:{authorization:'Bearer token'}}),storage,testEnv,async(url)=>{
       if(new URL(url).pathname==='/auth/v1/user') return Response.json({id:testOwner});
       return Response.json({message:'secret internal SQL and key'},{status:500});
@@ -194,8 +240,10 @@ test('UI loads masters, opens empty-state creation, retains input on errors and 
   assert.equal(ui.items().length,0); assert.equal(ui.lookupReady(),true); ui.create(); assert.equal(ui.editing(),true); assert.equal(ui.form.priority,'MEDIUM');
   ui.form.title='typed'; rejectSave=true; await ui.save(); assert.equal(ui.form.title,'typed'); assert.equal(ui.fields().title,'invalid'); assert.equal(ui.saving(),false);
   rejectSave=false; await ui.save(); assert.equal(ui.detail().id,id); assert.equal(ui.editing(),true); assert.ok(ui.success());
-  signedIn=false; await ui.initialize(); assert.equal(ui.error(),''); assert.equal(ui.canWrite(),false);
-  const before=requests.length; await ui.save(); assert.equal(requests.length,before); assert.ok(ui.formError().includes('เข้าสู่ระบบ'));
+  signedIn=false; await ui.initialize(); assert.equal(ui.error(),'');
+  const before=requests.length; ui.create(); ui.form.title='anonymous'; await ui.save(); assert.ok(requests.length>before); assert.equal(ui.formError(),'');
+  ui.openPR(); await ui.savePR(); assert.equal(ui.prError(),''); assert.ok(requests.some(path=>path===`/api/requirements/${id}/prs`));
+  ui.openPR({id:prId,provider:'GITHUB',pr_url:'https://example.com',pr_status:'OPEN'}); await ui.savePR(); assert.equal(ui.prError(),''); assert.ok(requests.some(path=>path===`/api/requirement-prs/${prId}`));
   const template=await readFile(new URL('../src/app/features/requirements/requirements.html',import.meta.url),'utf8');
   assert.ok(template.includes('ยังไม่มี Requirement')); assert.ok(template.includes('ไม่พบรายการตามเงื่อนไข')); assert.ok(template.includes('ยังไม่มี Pull Request')); assert.equal((template.match(/\+ เพิ่ม Requirement/g)||[]).length,2);
   assert.ok(template.includes('rel="noopener noreferrer"')); assert.ok(!template.includes('innerHTML'));

@@ -1,7 +1,7 @@
 import { publicSupabaseConfig } from './config/supabase-config.mjs';
 import { handleStorageApi } from './storage-api.mjs';
 import { MediaStorageService } from './services/media-storage.service.mjs';
-import { handleRequirementsApi, isAnonymousRequirementsRead } from './requirements-api.mjs';
+import { handleRequirementsApi, isAnonymousRequirementsRequest } from './requirements-api.mjs';
 
 const json = (status, value) => Response.json(value, { status, headers: { 'cache-control': 'no-store' } });
 function lazyStorage(factory) {
@@ -21,7 +21,7 @@ export async function handleAuthenticatedApi(request, storageFactory, env = proc
       return request.method === 'GET' ? json(200, config) : json(405, { error: 'Method not allowed' });
     }
     const authorization = request.headers.get('authorization');
-    if (!authorization && isAnonymousRequirementsRead(request)) {
+    if (!authorization && isAnonymousRequirementsRequest(request)) {
       return handleRequirementsApi(request, { config, headers: { apikey: config.publishableKey, 'content-type': 'application/json' }, user: null, fetcher });
     }
     if (!authorization?.startsWith('Bearer ')) return json(401, { error: 'กรุณาเข้าสู่ระบบ' });

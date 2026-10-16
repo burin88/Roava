@@ -4,7 +4,7 @@
     <button #addButton class="btn btn-primary" type="button" [disabled]="saving() || prSaving()" (click)="create()">+ เพิ่ม Requirement</button>
   </div>
   @if (success()) { <p class="alert alert-success" role="status">{{ success() }}</p> }
-  @if (!canWrite()) { <p class="alert alert-info">ดู Requirements ได้โดยไม่ต้องเข้าสู่ระบบ · การเพิ่มหรือแก้ไขข้อมูลต้อง <a routerLink="/trips">เข้าสู่ระบบ</a></p> }
+  <p class="text-secondary">ดู เพิ่ม และแก้ไข Requirements กับ PR ได้โดยไม่ต้องเข้าสู่ระบบ</p>
   <form class="filters card p-3 mb-4" (ngSubmit)="load(1)" aria-label="กรอง Requirements">
     <label>ค้นหา<input class="form-control" name="search" [(ngModel)]="filters.search" placeholder="Title / Description" maxlength="500"></label>
     <label>Type<select class="form-select" name="typeFilter" [(ngModel)]="filters.requirement_type"><option value="">ALL</option>@for (item of types(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }</select></label>
@@ -16,7 +16,7 @@
     <article class="card p-3 p-md-4 mb-4" aria-labelledby="editor-title">
       <h2 id="editor-title">{{ detail() ? 'ดู/แก้ไข Requirement' : 'เพิ่ม Requirement' }}</h2>
       <form (ngSubmit)="save()">
-        <fieldset [disabled]="saving() || prSaving() || !canWrite()">
+        <fieldset [disabled]="saving() || prSaving()">
           <label class="d-block mb-3">Title *<input #titleInput class="form-control" name="title" required maxlength="255" [(ngModel)]="form.title" [attr.aria-invalid]="fields()['title'] ? true : null" aria-describedby="title-error"></label>
           <p id="title-error" class="text-danger">{{ fields()['title'] }}</p>
           <label class="d-block mb-3">Description<textarea class="form-control" name="description" rows="4" [(ngModel)]="form.description"></textarea></label>
@@ -39,7 +39,6 @@
           @if (!lookupReady()) { <p role="status">กำลังรอ Master data — หากโหลดไม่สำเร็จ กด “ลองใหม่” ด้านล่าง</p> }
           <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" type="submit" [disabled]="!lookupReady()">{{ saving() ? 'กำลังบันทึก…' : 'บันทึก' }}</button><button class="btn btn-outline-secondary" type="button" (click)="cancel()">ยกเลิก</button></div>
         </fieldset>
-        @if (!canWrite()) { <button class="btn btn-outline-secondary mt-3" type="button" (click)="cancel()">ปิด</button> }
       </form>
       @if (detail(); as record) {
         <p class="small text-secondary mt-3">สร้าง {{ record.created_at | date:'medium' }} โดย {{ record.created_by }} @if (record.modified_at) { · แก้ไข {{ record.modified_at | date:'medium' }} โดย {{ record.modified_by }} }</p>
@@ -51,7 +50,7 @@
           </tbody></table></div>
         }
         @if (prEditing()) {
-          <form class="border rounded p-3 mt-3" (ngSubmit)="savePR()" aria-label="บันทึก PR"><h4>{{ prId ? 'แก้ไข PR' : 'เพิ่ม PR' }}</h4><fieldset [disabled]="prSaving() || !canWrite()">
+          <form class="border rounded p-3 mt-3" (ngSubmit)="savePR()" aria-label="บันทึก PR"><h4>{{ prId ? 'แก้ไข PR' : 'เพิ่ม PR' }}</h4><fieldset [disabled]="prSaving()">
             <label class="d-block mb-3">PR URL *<input #prUrlInput class="form-control" name="pr_url" type="url" required pattern="https://.*" [(ngModel)]="prForm.pr_url"><span class="text-danger">{{ prFields()['pr_url'] }}</span></label>
             <div class="form-options">
               <label>Provider *<select class="form-select" name="provider" [(ngModel)]="prForm.provider"><option value="GITHUB">GitHub</option><option value="AZURE_DEVOPS">Azure DevOps</option><option value="GITLAB">GitLab</option></select><span class="text-danger">{{ prFields()['provider'] }}</span></label>
