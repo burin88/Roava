@@ -54,7 +54,7 @@ export class CityMemory implements OnDestroy {
   tripExpense(trip: Trip): number { return trip.expenses.reduce((sum, item) => sum + item.amount, 0); }
   placeDayGroups(trip: Trip): TravelDayGroup[] { return groupTravelDays(trip); }
   readonly expenseTotals = expenseTotals;
-  get mediaStorageNote(): string { return this.media.location === 'browser' ? 'รูปภาพเก็บในเบราว์เซอร์และอุปกรณ์นี้ โปรดเก็บรูปต้นฉบับไว้ด้วย' : 'รูปภาพต้นฉบับเก็บในโฟลเดอร์ img/travel-photos ของโปรเจกต์'; }
+  get mediaStorageNote(): string { return 'รูปภาพต้นฉบับเก็บบน Cloudflare R2'; }
   togglePlaceDay(date: string): void { this.collapsedPlaceDays.update((current) => { const next = new Set(current); next.has(date) ? next.delete(date) : next.add(date); return next; }); }
   isPlaceDayCollapsed(date: string): boolean { return this.collapsedPlaceDays().has(date); }
   placeNumber(trip: Trip, place: Place): number { return trip.places.findIndex((item) => item.id === place.id) + 1; }
@@ -69,7 +69,7 @@ export class CityMemory implements OnDestroy {
   async saveTrip(trip: Trip): Promise<void> { await this.store.save(trip); this.selectedTripId.set(trip.id); this.editorOpen.set(false); this.flash('Journey saved'); }
   smartImportCreated(trip: Trip): void { this.photoImporterOpen.set(false); if (trip.countryCode === this.countryCode() && trip.cityCode === this.cityCode()) this.selectedTripId.set(trip.id); else void this.router.navigate(['/city', trip.countryCode, trip.cityCode]); this.flash(`${trip.mediaIds.length} photos analyzed`); }
   async deleteTrip(trip: Trip): Promise<void> {
-    if (!confirm(`Delete “${trip.name}” and its locally stored photos?`)) return;
+    if (!confirm(`Delete “${trip.name}” and its photos?`)) return;
     await Promise.all(trip.mediaIds.map((id) => this.media.delete(id))); await this.store.delete(trip.id); this.flash('Journey deleted');
     if (!this.trips().length) void this.router.navigate(['/continent', this.continent().code]);
   }
@@ -130,7 +130,7 @@ export class CityMemory implements OnDestroy {
       for (const [index, photo] of this.expensePendingPhotos.entries()) {
         this.expenseUploadProgress = `กำลังอัปโหลดรูป ${index + 1}/${this.expensePendingPhotos.length}…`;
         this.changeDetector.markForCheck();
-        const saved = await this.media.save(photo.file, trip.id); uploaded.push(saved.id);
+        const saved = await this.media.save(photo.file, trip.id, undefined, 'expense'); uploaded.push(saved.id);
       }
       this.expenseUploadProgress = 'กำลังบันทึกค่าใช้จ่าย…'; this.changeDetector.markForCheck();
       const expense = { ...structuredClone(this.expenseModel), currency: this.expenseModel.currency.trim().toUpperCase() || 'THB', mediaIds: [...new Set([...(this.expenseModel.mediaIds ?? []).filter(id => !this.expenseRemovedMediaIds.has(id)), ...uploaded])] };

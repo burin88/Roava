@@ -4,6 +4,7 @@
     <span class="d-grid lh-1"><strong>ATLAS</strong><small>Personal travel memory</small></span>
   </a>
   <nav class="navbar-nav flex-row gap-3 ms-4">
+    <a class="nav-link" routerLink="/requirements" routerLinkActive="active">Requirements</a>
     <a class="nav-link" routerLink="/beijing" routerLinkActive="active">Beijing</a>
     <a class="nav-link" routerLink="/continent/AS" [class.active]="router.url.startsWith('/continent/') || router.url.startsWith('/country/')" data-tour="world-atlas-link">World Atlas</a>
     <a class="nav-link" routerLink="/trips" routerLinkActive="active" data-tour="journeys-link">Journeys</a>
@@ -16,7 +17,13 @@
       <button type="button" class="btn" [class.btn-success]="theme() === 'dark'" [class.btn-outline-secondary]="theme() !== 'dark'" (click)="setTheme('dark')">Dark</button>
       <button type="button" class="btn" [class.btn-success]="theme() === 'light'" [class.btn-outline-secondary]="theme() !== 'light'" (click)="setTheme('light')">Light</button>
     </div>
-    <span class="profile"><span class="profile-dot"></span> My Atlas</span>
+    @if (auth.user()) { <button class="btn btn-outline-secondary btn-sm" (click)="signOut()">ออกจากระบบ</button> }
   </div>
 </header>
-<main><router-outlet /></main>
+<main>
+  @if (anonymousRequirements()) { <router-outlet /> }
+  @else if (!auth.ready()) { <p class="p-5 text-center" role="status">กำลังเชื่อมต่อ…</p> }
+  @else if (auth.configError()) { <div class="alert alert-danger m-4" role="alert">{{ auth.configError() }} <button class="btn btn-outline-secondary ms-3" (click)="retry()">ลองใหม่</button></div> }
+  @else if (!auth.user()) { <app-login /> }
+  @else { @if (signOutError()) { <p role="alert">{{ signOutError() }}</p> } <authenticated-workspace /> }
+</main>

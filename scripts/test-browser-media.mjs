@@ -18,8 +18,8 @@ function fixture(extra={}) {
 }
 const image=()=>new File(['original receipt image'],'receipt.jpg',{type:'image/jpeg',lastModified:Date.now()});
 
-test('production saves original receipt bytes without an API and survives a new storage instance',async()=>{
-  const f=fixture({fetch:()=>{throw new Error('Production must not call a media API');}});
+test('legacy browser photos remain readable across storage instances',async()=>{
+  const f=fixture({fetch:()=>{throw new Error('Legacy storage must not call a media API');}});
   const storage=f.create();
   const saved=await storage.save(image(),'trip','place');
   assert.equal(storage.location,'browser');
@@ -57,7 +57,7 @@ test('blocked or disabled storage fails clearly rather than leaving Save running
   await assert.rejects(fixture({indexedDB:blocked}).create().save(image(),'trip'),/แท็บอื่น/);
   await assert.rejects(fixture({indexedDB:undefined}).create().save(image(),'trip'),/ไม่รองรับคลังรูป/);
 });
-test('production provider uses browser storage; development retains the local media server',()=>{
+test('production and development both provide API-backed media storage',()=>{
   for(const development of [false,true]) {
     class Browser{}class Files{}class Media{}
     const exports={};
@@ -65,11 +65,12 @@ test('production provider uses browser storage; development retains the local me
       if(name==='@angular/core')return{inject:token=>token,isDevMode:()=>development,provideBrowserGlobalErrorListeners:()=>({})};
       if(name==='@angular/router')return{provideRouter:()=>({}),withInMemoryScrolling:()=>({})};
       if(name.endsWith('/indexeddb-media.storage'))return{IndexedDbMediaStorage:Browser};
-      if(name.endsWith('/file-system-media.storage'))return{FileSystemMediaStorage:Files};
+      if(name.endsWith('/api-media.storage'))return{ApiMediaStorage:Files};
       if(name.endsWith('/media-storage'))return{MediaStorage:Media};
       return{};
     }});
     const provider=exports.appConfig.providers.find(provider=>provider?.provide===Media);
-    assert.equal(provider.useFactory(),development?Files:Browser);
+    assert.equal(provider.useExisting,Files);
+    assert.equal(provider.useFactory,undefined);
   }
 });

@@ -48,7 +48,7 @@ export class AsiaDashboard {
     );
   });
   readonly countryByCode = countryByCode;
-  get backupStorageNote(): string { return this.media.location === 'browser' ? 'Trips and photos are stored in this browser on this device. JSON export backs up trip details only; keep your original photos separately.' : 'Trip details are stored in this browser and photos in the project folder. JSON export backs up trip details only; keep a copy of your photo folder too.'; }
+  get backupStorageNote(): string { return 'Trip details are stored in this browser. Photos are stored on Cloudflare R2. JSON export contains trip details and photo references, without image files.'; }
 
   constructor() {
     this.route.paramMap.subscribe((params) => {
@@ -68,7 +68,7 @@ export class AsiaDashboard {
     void this.router.navigate(['/continent', code]);
   }
   selectCountry(code: string): void {
-    if (code === 'CN') { void this.router.navigate(['/country', 'CN']); return; }
+    if (code === 'CN' || code === 'TH') { void this.router.navigate(['/country', code]); return; }
     this.pendingCountryCode = null;
     this.selectedCountry.set(this.countries().some((country) => country.code === code) ? code : null);
     this.clearCountrySearch();
@@ -105,12 +105,12 @@ export class AsiaDashboard {
   }
   async reset(): Promise<void> {
     if (!confirm('Reset all trips and photos stored in this browser? This cannot be undone.')) return;
-    await this.store.reset(); await this.media.clear(); this.selectedCountry.set(null); this.flash('Your local atlas has been reset');
+    await this.store.reset(); await this.media.clear(); this.selectedCountry.set(null); this.flash('Your atlas has been reset');
   }
   private flash(message: string): void { this.toast.set(message); window.setTimeout(() => this.toast.set(''), 2800); }
   private clearCountrySearch(): void { this.countrySearch.set(''); this.countrySearchOpen.set(false); }
   private showCountry(code: string): void {
-    if (code === 'CN') { void this.router.navigate(['/country', 'CN']); return; }
+    if (code === 'CN' || code === 'TH') { void this.router.navigate(['/country', code]); return; }
     const country = countryByCode(code);
     if (!country) { this.selectedCountry.set(null); return; }
     if (country.continentCode !== this.continentCode()) {

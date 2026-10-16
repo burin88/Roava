@@ -1,5 +1,6 @@
 import { GENERATED_COUNTRY_ROWS } from './world-countries.generated';
 import { CHINA_PROVINCES } from './china-provinces';
+import { THAILAND_PROVINCES } from './thailand-provinces';
 
 export interface CityOption { code: string; name: string; coordinates: [number, number]; }
 export type ContinentCode = 'AF' | 'AN' | 'AS' | 'EU' | 'NA' | 'OC' | 'SA';
@@ -61,6 +62,13 @@ const china = ASIA_COUNTRIES.find(country => country.code === 'CN')!;
 for (const province of CHINA_PROVINCES) {
   if (!china.cities.some(city => city.code === province.capitalCode)) {
     china.cities.push({ code: province.capitalCode, name: province.capital, coordinates: province.coordinates });
+  }
+}
+
+const thailand = ASIA_COUNTRIES.find(country => country.code === 'TH')!;
+for (const province of THAILAND_PROVINCES) {
+  if (!thailand.cities.some(city => city.code === province.capitalCode)) {
+    thailand.cities.push({ code: province.capitalCode, name: province.name, coordinates: province.coordinates });
   }
 }
 

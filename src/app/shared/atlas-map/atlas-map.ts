@@ -54,10 +54,11 @@ export class AtlasMap implements AfterViewInit, OnChanges, OnDestroy {
     const width = this.container.nativeElement.clientWidth;
     const map = new maplibregl.Map({
       container: this.container.nativeElement, center: this.continent.center, zoom: this.initialZoom(width || 1024), minZoom: 1.1, maxZoom: 10,
-      attributionControl: false,
+      attributionControl: false, clickTolerance: 6,
       style: { version: 8, sources: {}, layers: [{ id: 'background', type: 'background', paint: { 'background-color': 'rgba(7,28,29,0)' } }] },
     });
     this.map = map;
+    this.bindMapEvents();
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
     map.on('load', () => void this.reloadContinent());
   }
@@ -182,12 +183,34 @@ export class AtlasMap implements AfterViewInit, OnChanges, OnDestroy {
     this.eventsBound = true;
     this.map.on('move', this.scheduleOverlaySync);
     this.map.on('resize', this.scheduleOverlaySync);
-    this.map.on('mousemove', 'countries-fill', (event) => this.showCountryPopup(event));
-    this.map.on('mouseleave', 'countries-fill', () => { this.map!.getCanvas().style.cursor = ''; this.popup?.remove(); });
-    this.map.on('click', 'countries-fill', (event) => {
-      const code = event.features?.[0]?.properties?.['code'] as string | undefined;
-      if (code) this.countrySelected.emit(code);
+    // Countries are drawn in the projected SVG overlay. Bind to the map canvas
+    // immediately instead of waiting for an invisible GeoJSON hit layer to load.
+    this.map.on('mousemove', (event) => {
+      const feature = this.countryAtPoint(event.point);
+      if (feature && !this.map!.isMoving()) this.showCountryPopup(event, feature);
+      else { this.map!.getCanvas().style.cursor = ''; this.popup?.remove(); }
     });
+    this.map.on('mouseout', () => { this.map!.getCanvas().style.cursor = ''; this.popup?.remove(); });
+    this.map.on('click', (event) => {
+      const feature = this.countryAtPoint(event.point);
+      if (feature) { this.popup?.remove(); this.countrySelected.emit(feature.properties.code); }
+    });
+  }
+
+  private countryAtPoint(point: { x: number; y: number }): AtlasFeature | undefined {
+    if (!this.atlasData) return undefined;
+    // Test the exact paths the user sees, including after pan/zoom and world wrapping.
+    if (this.overlayPaths.size && typeof DOMPoint !== 'undefined') {
+      const svgPoint = new DOMPoint(point.x, point.y);
+      for (const feature of this.atlasData.features) {
+        const path = this.overlayPaths.get(feature.properties.code);
+        if (path?.isPointInFill(svgPoint)) return feature;
+      }
+      return undefined;
+    }
+    if (!this.map?.getLayer('countries-fill')) return undefined;
+    const code = this.map.queryRenderedFeatures([point.x, point.y], { layers: ['countries-fill'] })[0]?.properties?.['code'];
+    return this.atlasData.features.find(feature => feature.properties.code === code);
   }
 
   private refreshFallback(): void {
@@ -458,8 +481,8 @@ export class AtlasMap implements AfterViewInit, OnChanges, OnDestroy {
     return value;
   }
 
-  private showCountryPopup(event: maplibregl.MapLayerMouseEvent): void {
-    this.map!.getCanvas().style.cursor = 'pointer'; const properties = event.features?.[0]?.properties; if (!properties) return;
+  private showCountryPopup(event: maplibregl.MapMouseEvent, feature: AtlasFeature): void {
+    this.map!.getCanvas().style.cursor = 'pointer'; const properties = feature.properties;
     const code = properties['code']; const countryTrips = this.trips.filter((trip) => trip.countryCode === code);
     const days = countryTrips.reduce((sum, trip) => sum + Math.max(1, Math.round((Date.parse(trip.endDate) - Date.parse(trip.startDate)) / 86400000) + 1), 0);
     const expenses = countryTrips.flatMap((trip) => trip.expenses).reduce((sum, expense) => sum + expense.amount, 0);

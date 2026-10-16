@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
+  { path: 'requirements', loadComponent: () => import('./features/requirements/requirements').then(module => module.Requirements), title: 'Requirement Management · Roava' },
+  { path: 'country/TH', loadComponent: () => import('./features/thailand/thailand-dashboard').then(module => module.ThailandDashboard), title: '77 จังหวัด · Thailand · Roava' },
   { path: 'country/CN', loadComponent: () => import('./features/china/china-dashboard').then(module => module.ChinaDashboard), title: 'China Provinces · Atlas' },
   { path: '', pathMatch: 'full', redirectTo: 'beijing' },
   { path: 'beijing', loadComponent: () => import('./features/beijing/beijing').then((module) => module.Beijing), title: 'ปักกิ่ง 7 วัน 6 คืน · Roava' },

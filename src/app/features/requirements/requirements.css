@@ -1,0 +1,13 @@
+:host { display:block; }
+.requirements { max-width:1500px; margin:auto; }
+.filters { display:grid; grid-template-columns: minmax(180px,2fr) repeat(3,minmax(120px,1fr)) auto; gap:1rem; }
+.form-options { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:1rem; }
+label { font-weight:500; }
+input,select,textarea { margin-top:.35rem; }
+th,td { padding:1rem; }
+.title-cell { min-width:200px; max-width:400px; overflow-wrap:anywhere; }
+td a { display:inline-block; max-width:320px; overflow-wrap:anywhere; }
+.empty-state { min-height:260px; justify-content:center; }
+fieldset { min-width:0; }
+@media(max-width:900px) { .filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:500px) { .filters,.form-options { grid-template-columns:1fr; } h1 { font-size:1.8rem; } }

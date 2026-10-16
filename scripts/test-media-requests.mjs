@@ -4,27 +4,28 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import ts from 'typescript';
 
-const js=ts.transpileModule(fs.readFileSync('src/app/core/storage/file-system-media.storage.ts','utf8'),{
+const js=ts.transpileModule(fs.readFileSync('src/app/core/storage/api-media.storage.ts','utf8'),{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,experimentalDecorators:true},
 }).outputText;
 function storageWith(fetch) {
   const exports={};
-  vm.runInNewContext(js,{exports,fetch,AbortController,setTimeout,clearTimeout,Error,TypeError,SyntaxError,
-    require:name=>name==='@angular/core'?{Injectable:()=>target=>target,inject:()=>({})}:{},
+  vm.runInNewContext(js,{exports,fetch,Headers,AbortController,setTimeout,clearTimeout,Error,TypeError,SyntaxError,
+    require:name=>name==='@angular/core'?{Injectable:()=>target=>target,inject:()=>({token:async()=> 'test-token'})}:{},
   });
-  return new exports.FileSystemMediaStorage();
+  return new exports.ApiMediaStorage();
 }
 const file={name:'ใบเสร็จ.jpg',type:'image/jpeg',size:50,lastModified:Date.parse('2026-10-15')};
 const response=(status,value)=>({status,ok:status>=200&&status<300,json:async()=>value});
 
 test('upload retains its API contract and returns the saved image record',async()=>{
   let sent;
-  const storage=storageWith(async(url,options)=>{sent={url,options};return response(201,{id:'photo',url:'/img/photo.jpg'});});
+  const storage=storageWith(async(url,options)=>{sent={url,options};return response(201,{id:'photo',url:'/api/media/photo'});});
   assert.equal((await storage.save(file,'trip','place')).id,'photo');
   assert.equal(sent.url,'/api/media');
   assert.equal(sent.options.body,file);
-  assert.equal(decodeURIComponent(sent.options.headers['x-file-name']),file.name);
-  assert.equal(sent.options.headers['x-trip-id'],'trip');
+  assert.equal(decodeURIComponent(sent.options.headers.get('x-file-name')),file.name);
+  assert.equal(sent.options.headers.get('x-trip-id'),'trip');
+  assert.equal(sent.options.headers.get('authorization'),'Bearer test-token');
   assert.ok(sent.options.signal);
 });
 test('a server that never responds is aborted and returns a bounded timeout error',async()=>{

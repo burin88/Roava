@@ -33,7 +33,7 @@ export class Beijing {
     if (this.addingPlan()) return;
     this.addingPlan.set(true); this.planError.set('');
     try { await this.store.addRequestedChinaPlan(force); }
-    catch { this.planError.set('ยังบันทึกแผนไม่สำเร็จ กรุณาตรวจสอบพื้นที่จัดเก็บของเบราว์เซอร์แล้วลองอีกครั้ง'); }
+    catch { this.planError.set('ยังบันทึกแผนไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง'); }
     finally { this.addingPlan.set(false); }
   }
   print(): void {

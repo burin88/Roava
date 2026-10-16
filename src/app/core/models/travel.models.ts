@@ -13,6 +13,7 @@ export interface Trip {
   cityName?: string; description: string; notes: string; transport?: string; hotel?: string; restaurant?: string;
   provinceCode?: string;
   journeyGroupId?: string;
+  timezone?: string;
   ticket?: string; route?: string; rating?: number; tags: string[]; places: Place[];
   expenses: Expense[]; mediaIds: string[]; createdAt: string; updatedAt: string;
 }
@@ -22,6 +23,7 @@ export interface StoredMedia {
   id: string; tripId: string; placeId?: string; fileName: string; contentType: string;
   blob?: Blob; thumbnailBlob?: Blob; url?: string; thumbnailUrl?: string; storedFileName?: string;
   capturedAt?: string; latitude?: number; longitude?: number;
+  key?: string; size?: number;
 }
 export interface TripSummary { title: string; lines: string[]; }
 export interface ArchiveSummary { headline: string; narrative: string; insights: string[]; }

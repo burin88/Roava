@@ -1,6 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { StoredMedia } from '../models/travel.models';
-import { IndexedDbMediaStorage } from './indexeddb-media.storage';
+import { SupabaseService } from '../auth/supabase.service';
 import { MediaStorage } from './media-storage';
 
 interface MediaApiRecord {
@@ -16,11 +16,11 @@ interface MediaApiRecord {
 }
 
 @Injectable()
-export class FileSystemMediaStorage implements MediaStorage {
-  readonly location = 'filesystem' as const;
-  private readonly legacyStorage = inject(IndexedDbMediaStorage);
+export class ApiMediaStorage implements MediaStorage {
+  readonly location = 'api' as const;
+  private readonly auth = inject(SupabaseService);
 
-  async save(file: File, tripId: string, placeId?: string): Promise<StoredMedia> {
+  async save(file: File, tripId: string, placeId?: string, type?: 'trip' | 'place' | 'expense' | 'import'): Promise<StoredMedia> {
     if (file.size > 25 * 1024 * 1024) throw new Error('รูปภาพมีขนาดเกิน 25 MB กรุณาเลือกรูปที่เล็กลง');
     return this.request('/api/media', {
       method: 'POST',
@@ -29,6 +29,7 @@ export class FileSystemMediaStorage implements MediaStorage {
         'x-file-name': encodeURIComponent(file.name),
         'x-file-captured-at': new Date(file.lastModified).toISOString(),
         'x-trip-id': encodeURIComponent(tripId),
+        'x-attachment-type': type || (placeId ? 'place' : 'trip'),
         ...(placeId ? { 'x-place-id': encodeURIComponent(placeId) } : {}),
       },
       body: file,
@@ -42,18 +43,28 @@ export class FileSystemMediaStorage implements MediaStorage {
 
   async get(id: string): Promise<Blob | null> {
     const record = await this.apiRecord(id);
-    if (!record) return this.legacyStorage.get(id);
-    return this.request(record.url, {}, async response => response.ok ? response.blob() : null);
+    if (!record) return null;
+    return this.request(record.url, {}, async response => {
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo could not be loaded'));
+      return response.blob();
+    }, 45000);
   }
 
   async getRecord(id: string): Promise<StoredMedia | null> {
     const record = await this.apiRecord(id);
-    return record ? this.toStoredMedia(record) : this.legacyStorage.getRecord(id);
+    if (!record) return null;
+    // <img> cannot attach a bearer header. Return a blob for the UI's object URL.
+    const blob = await this.request(record.url, {}, async response => {
+      if (!response.ok) throw new Error('โหลดรูปภาพไม่สำเร็จ');
+      return response.blob();
+    }, 45000);
+    return { ...record, url: undefined, thumbnailUrl: undefined, blob };
   }
 
   async delete(id: string): Promise<void> {
     await this.request(`/api/media/${encodeURIComponent(id)}`, { method: 'DELETE' }, async response => {
-      if (response.status === 404) { await this.legacyStorage.delete(id); return; }
+      if (response.status === 404) return;
       if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo deletion failed'));
     });
   }
@@ -62,7 +73,6 @@ export class FileSystemMediaStorage implements MediaStorage {
     await this.request('/api/media', { method: 'DELETE' }, async response => {
       if (!response.ok) throw new Error(await this.errorMessage(response, 'Photo cleanup failed'));
     });
-    await this.legacyStorage.clear();
   }
 
   private async apiRecord(id: string): Promise<MediaApiRecord | null> {
@@ -75,6 +85,9 @@ export class FileSystemMediaStorage implements MediaStorage {
 
   /** Deadline includes reading the response body, not just receiving headers. */
   private async request<T>(url: string, options: RequestInit, read: (response: Response) => Promise<T>, timeoutMs = 15000): Promise<T> {
+    const token = await this.auth.token();
+    const headers = new Headers(options.headers);
+    headers.set('authorization', `Bearer ${token}`);
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const deadline = new Promise<T>((_, reject) => {
@@ -84,7 +97,7 @@ export class FileSystemMediaStorage implements MediaStorage {
       }, timeoutMs);
     });
     try {
-      return await Promise.race([fetch(url, { ...options, signal: controller.signal }).then(read), deadline]);
+      return await Promise.race([fetch(url, { ...options, headers, signal: controller.signal }).then(read), deadline]);
     } catch (error) {
       if (error instanceof TypeError) throw new Error('ติดต่อเซิร์ฟเวอร์รูปภาพไม่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองอีกครั้ง');
       if (error instanceof SyntaxError) throw new Error('เซิร์ฟเวอร์ตอบกลับไม่ใช่ข้อมูลรูปภาพ กรุณาตรวจสอบว่า API รูปภาพพร้อมใช้งาน');

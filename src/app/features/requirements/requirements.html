@@ -1,0 +1,79 @@
+<section class="requirements container-fluid py-4 px-3 px-md-5" aria-labelledby="requirements-title">
+  <div class="d-flex flex-wrap justify-content-between gap-3 align-items-center mb-4">
+    <div><p class="text-secondary mb-1">Requirement Management</p><h1 id="requirements-title">Requirements</h1><p class="text-secondary mb-0">จัดการข้อกำหนดและ Pull Requests ที่เกี่ยวข้อง</p></div>
+    <button #addButton class="btn btn-primary" type="button" [disabled]="saving() || prSaving()" (click)="create()">+ เพิ่ม Requirement</button>
+  </div>
+  @if (success()) { <p class="alert alert-success" role="status">{{ success() }}</p> }
+  @if (!canWrite()) { <p class="alert alert-info">ดู Requirements ได้โดยไม่ต้องเข้าสู่ระบบ · การเพิ่มหรือแก้ไขข้อมูลต้อง <a routerLink="/trips">เข้าสู่ระบบ</a></p> }
+  <form class="filters card p-3 mb-4" (ngSubmit)="load(1)" aria-label="กรอง Requirements">
+    <label>ค้นหา<input class="form-control" name="search" [(ngModel)]="filters.search" placeholder="Title / Description" maxlength="500"></label>
+    <label>Type<select class="form-select" name="typeFilter" [(ngModel)]="filters.requirement_type"><option value="">ALL</option>@for (item of types(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }</select></label>
+    <label>Priority<select class="form-select" name="priorityFilter" [(ngModel)]="filters.priority"><option value="">ALL</option>@for (item of priorities(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }</select></label>
+    <label>Status<select class="form-select" name="statusFilter" [(ngModel)]="filters.status"><option value="">ALL</option>@for (item of statuses(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }</select></label>
+    <button class="btn btn-outline-primary align-self-end" type="submit" [disabled]="loading()">ค้นหา / กรอง</button>
+  </form>
+  @if (editing()) {
+    <article class="card p-3 p-md-4 mb-4" aria-labelledby="editor-title">
+      <h2 id="editor-title">{{ detail() ? 'ดู/แก้ไข Requirement' : 'เพิ่ม Requirement' }}</h2>
+      <form (ngSubmit)="save()">
+        <fieldset [disabled]="saving() || prSaving() || !canWrite()">
+          <label class="d-block mb-3">Title *<input #titleInput class="form-control" name="title" required maxlength="255" [(ngModel)]="form.title" [attr.aria-invalid]="fields()['title'] ? true : null" aria-describedby="title-error"></label>
+          <p id="title-error" class="text-danger">{{ fields()['title'] }}</p>
+          <label class="d-block mb-3">Description<textarea class="form-control" name="description" rows="4" [(ngModel)]="form.description"></textarea></label>
+          <p class="text-danger">{{ fields()['description'] }}</p>
+          <div class="form-options">
+            <label>Type *<select class="form-select" name="type" required [(ngModel)]="form.requirement_type">
+              @if (detail() && inactive(types(), form.requirement_type)) { <option [value]="form.requirement_type" disabled>{{ detail()!.type_name }} (ปิดใช้งาน)</option> }
+              @for (item of types(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }
+            </select><span class="text-danger">{{ fields()['requirement_type'] }}</span></label>
+            <label>Priority *<select class="form-select" name="priority" required [(ngModel)]="form.priority">
+              @if (detail() && inactive(priorities(), form.priority)) { <option [value]="form.priority" disabled>{{ detail()!.priority_name }} (ปิดใช้งาน)</option> }
+              @for (item of priorities(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }
+            </select><span class="text-danger">{{ fields()['priority'] }}</span></label>
+            <label>Status *<select class="form-select" name="status" required [(ngModel)]="form.status">
+              @if (detail() && inactive(statuses(), form.status)) { <option [value]="form.status" disabled>{{ detail()!.status_name }} (ปิดใช้งาน)</option> }
+              @for (item of statuses(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }
+            </select><span class="text-danger">{{ fields()['status'] }}</span></label>
+          </div>
+          @if (formError()) { <p class="alert alert-danger mt-3" role="alert">{{ formError() }}</p> }
+          @if (!lookupReady()) { <p role="status">กำลังรอ Master data — หากโหลดไม่สำเร็จ กด “ลองใหม่” ด้านล่าง</p> }
+          <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" type="submit" [disabled]="!lookupReady()">{{ saving() ? 'กำลังบันทึก…' : 'บันทึก' }}</button><button class="btn btn-outline-secondary" type="button" (click)="cancel()">ยกเลิก</button></div>
+        </fieldset>
+        @if (!canWrite()) { <button class="btn btn-outline-secondary mt-3" type="button" (click)="cancel()">ปิด</button> }
+      </form>
+      @if (detail(); as record) {
+        <p class="small text-secondary mt-3">สร้าง {{ record.created_at | date:'medium' }} โดย {{ record.created_by }} @if (record.modified_at) { · แก้ไข {{ record.modified_at | date:'medium' }} โดย {{ record.modified_by }} }</p>
+        <hr><div class="d-flex align-items-center justify-content-between gap-3"><h3>Related PRs</h3><button class="btn btn-outline-primary" type="button" [disabled]="saving() || prSaving()" (click)="openPR()">+ เพิ่ม PR</button></div>
+        @if (!record.prs.length) { <p class="py-3">ยังไม่มี Pull Request</p> }
+        @else {
+          <div class="table-responsive"><table class="table align-middle"><caption>Pull Requests ของ Requirement นี้</caption><thead><tr><th>Provider</th><th>Repository</th><th>PR Number</th><th>PR URL</th><th>PR Status</th><th>Actions</th></tr></thead><tbody>
+            @for (pr of record.prs; track pr.id) { <tr><td>{{ pr.provider }}</td><td>{{ pr.repository_name || '—' }}</td><td>{{ pr.pr_number || '—' }}</td><td>@if (safeURL(pr.pr_url); as href) { <a [href]="href" target="_blank" rel="noopener noreferrer">{{ pr.pr_url }}</a> } @else { {{ pr.pr_url }} }</td><td>{{ pr.pr_status }}</td><td><button class="btn btn-sm btn-outline-secondary" type="button" [disabled]="prSaving()" (click)="openPR(pr)">แก้ไข PR</button></td></tr> }
+          </tbody></table></div>
+        }
+        @if (prEditing()) {
+          <form class="border rounded p-3 mt-3" (ngSubmit)="savePR()" aria-label="บันทึก PR"><h4>{{ prId ? 'แก้ไข PR' : 'เพิ่ม PR' }}</h4><fieldset [disabled]="prSaving() || !canWrite()">
+            <label class="d-block mb-3">PR URL *<input #prUrlInput class="form-control" name="pr_url" type="url" required pattern="https://.*" [(ngModel)]="prForm.pr_url"><span class="text-danger">{{ prFields()['pr_url'] }}</span></label>
+            <div class="form-options">
+              <label>Provider *<select class="form-select" name="provider" [(ngModel)]="prForm.provider"><option value="GITHUB">GitHub</option><option value="AZURE_DEVOPS">Azure DevOps</option><option value="GITLAB">GitLab</option></select><span class="text-danger">{{ prFields()['provider'] }}</span></label>
+              <label>Repository<input class="form-control" name="repository_name" maxlength="255" [(ngModel)]="prForm.repository_name"><span class="text-danger">{{ prFields()['repository_name'] }}</span></label>
+              <label>PR Number<input class="form-control" name="pr_number" maxlength="50" [(ngModel)]="prForm.pr_number"><span class="text-danger">{{ prFields()['pr_number'] }}</span></label>
+              <label>PR Status<select class="form-select" name="pr_status" [(ngModel)]="prForm.pr_status"><option>OPEN</option><option>MERGED</option><option>CLOSED</option></select><span class="text-danger">{{ prFields()['pr_status'] }}</span></label>
+            </div>
+            @if (prError()) { <p class="alert alert-danger mt-3" role="alert">{{ prError() }}</p> }
+            <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" type="submit">{{ prSaving() ? 'กำลังบันทึก…' : 'บันทึก PR' }}</button><button class="btn btn-outline-secondary" type="button" (click)="prEditing.set(false)">ยกเลิก</button></div>
+          </fieldset></form>
+        }
+      } @else { <p class="text-secondary mt-3">บันทึก Requirement ก่อนเพิ่ม Pull Request</p> }
+    </article>
+  }
+  @if (loading()) { <p class="py-5 text-center" role="status">กำลังโหลด Requirements…</p> }
+  @else if (error()) { <div class="alert alert-danger" role="alert">{{ error() }} <button class="btn btn-outline-secondary ms-2" type="button" (click)="retry()">ลองใหม่</button></div> }
+  @else if (!items().length) {
+    <div class="card empty-state text-center p-5"><h2>{{ hasFilters() ? 'ไม่พบรายการตามเงื่อนไข' : 'ยังไม่มี Requirement' }}</h2><p class="text-secondary">เพิ่ม Requirement เพื่อเริ่มติดตามงานและ Pull Requests</p><button class="btn btn-primary align-self-center" type="button" (click)="create()">+ เพิ่ม Requirement</button></div>
+  } @else {
+    <div class="card table-responsive"><table class="table align-middle mb-0"><caption class="px-3">{{ total() }} รายการ · เรียงตาม Type, Priority และวันสร้างจากเก่าไปใหม่</caption><thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>PR Count</th><th>Created At</th><th>Actions</th></tr></thead><tbody>
+      @for (item of items(); track item.id) { <tr><td class="title-cell">{{ item.title }}</td><td>{{ item.type_name }}</td><td>{{ item.priority_name }}</td><td>{{ item.status_name }}</td><td>{{ item.pr_count }}</td><td class="text-nowrap">{{ item.created_at | date:'medium' }}</td><td><button class="btn btn-sm btn-outline-primary text-nowrap" type="button" [disabled]="saving() || prSaving()" (click)="edit(item.id)">ดู/แก้ไข</button></td></tr> }
+    </tbody></table></div>
+    @if (pages() > 1) { <nav class="d-flex gap-3 align-items-center justify-content-end mt-3" aria-label="แบ่งหน้า"><button class="btn btn-outline-secondary" [disabled]="page() <= 1" (click)="load(page()-1)">ก่อนหน้า</button><span>หน้า {{ page() }} / {{ pages() }}</span><button class="btn btn-outline-secondary" [disabled]="page() >= pages()" (click)="load(page()+1)">ถัดไป</button></nav> }
+  }
+</section>

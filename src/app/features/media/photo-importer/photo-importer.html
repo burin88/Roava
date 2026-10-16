@@ -63,11 +63,11 @@
         <section class="review-section raw-text">
           <details><summary><span><b>OCR text from {{ scans().length }} images</b><small>เปิดดูหรือแก้ไขข้อความที่จะเก็บใน Notes</small></span><em>View text</em></summary><textarea name="ocrNotes" rows="12" [(ngModel)]="draft.notes"></textarea><div class="scan-quality">@for (scan of scans(); track scan.fileName) {<span>{{ scan.fileName }} <b>{{ scan.confidence }}%</b></span>}</div></details>
         </section>
-        <footer><button class="button ghost" type="button" (click)="backToSelect()">← Change photos</button><div><small>{{ photos().length }} photos will be saved to img/travel-photos</small><button class="button primary" type="submit" [disabled]="reviewForm.invalid">Create journey from photos →</button></div></footer>
+        <footer><button class="button ghost" type="button" (click)="backToSelect()">← Change photos</button><div><small>{{ photos().length }} photos will be saved to Cloudflare R2</small><button class="button primary" type="submit" [disabled]="reviewForm.invalid">Create journey from photos →</button></div></footer>
       </form>
     }
 
-    @if (phase() === 'saving') {<div class="processing"><div class="orb"><span>⇩</span></div><h3>Saving your new memory</h3><p>กำลังบันทึกรูปต้นฉบับ {{ photos().length }} รูปลงใน img/travel-photos</p></div>}
+    @if (phase() === 'saving') {<div class="processing"><div class="orb"><span>⇩</span></div><h3>Saving your new memory</h3><p>กำลังบันทึกรูปต้นฉบับ {{ photos().length }} รูปไปยัง Cloudflare R2</p></div>}
     @if (phase() === 'error') {<div class="error-state"><span>!</span><h3>Import could not finish</h3><p>{{ error() }}</p><button class="button secondary" type="button" (click)="backToSelect()">Try again</button></div>}
   </section>
 </div>

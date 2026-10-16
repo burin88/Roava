@@ -1,5 +1,6 @@
 import { TravelDocument, Trip } from '../models/travel.models';
 export abstract class TravelRepository {
+  readonly storageScope?: string;
   abstract getDocument(): Promise<TravelDocument>;
   abstract replaceDocument(document: TravelDocument): Promise<void>;
   abstract getTrips(): Promise<Trip[]>;

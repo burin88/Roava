@@ -8,6 +8,10 @@
 
 # Node
 /node_modules
+.env
+.env.*
+!.env.example
+/database/import-pasted-json.sql
 npm-debug.log
 yarn-error.log
 
