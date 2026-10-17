@@ -3,6 +3,7 @@ import vm from 'node:vm';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import ts from 'typescript';
+import { parseTemplate, TmplAstElement } from '@angular/compiler';
 
 const compile = file => ts.transpileModule(fs.readFileSync(file, 'utf8'), {
   compilerOptions: {
@@ -130,4 +131,35 @@ test('How to use button remains visible and natively disabled without an onboard
   assert.match(button, /<span class="d-lg-none" aria-hidden="true">\?<\/span>/);
   assert.match(button, /<span class="d-none d-lg-inline">วิธีใช้<\/span>/);
   assert.equal(fixture('/trips', false).app.openOnboarding, undefined);
+});
+
+test('How to use button is always rendered in the header, including before login', () => {
+  const template = parseTemplate(fs.readFileSync('src/app/app.html', 'utf8'), 'app.html');
+  assert.equal(template.errors, null);
+  const header = template.nodes.find(node => node instanceof TmplAstElement && node.name === 'header');
+  assert.ok(header, 'The header must be unconditional');
+
+  // Walk only element children: a button inside an @if, @defer, or structural
+  // template must not satisfy this check, even if its markup still exists.
+  function findButton(node, ancestors = []) {
+    if (!(node instanceof TmplAstElement)) return;
+    const path = [...ancestors, node];
+    if (node.name === 'button' && node.attributes.some(attr => attr.name === 'aria-label' && attr.value === 'เปิดคำแนะนำการใช้งาน')) return path;
+    for (const child of node.children) {
+      const result = findButton(child, path);
+      if (result) return result;
+    }
+  }
+
+  const path = findButton(header);
+  assert.ok(path, 'The help button must render without authentication or visit-history conditions');
+  for (const node of path) {
+    assert.ok(!node.attributes.some(attr => attr.name === 'hidden'), 'Neither button nor ancestors may be hidden');
+    const classes = node.attributes.find(attr => attr.name === 'class')?.value.split(/\s+/) ?? [];
+    assert.ok(!classes.includes('d-none'), 'Neither button nor ancestors may be display-hidden');
+  }
+  const button = path.at(-1);
+  assert.ok(button.attributes.some(attr => attr.name === 'disabled'));
+  assert.equal(button.inputs.length, 0, 'Bindings must not re-enable or hide the button');
+  assert.equal(button.outputs.length, 0, 'The disabled button must have no activation handler');
 });
