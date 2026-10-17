@@ -19,6 +19,7 @@
     "test:browser-media": "node --test ./scripts/test-browser-media.mjs",
     "test:r2": "node --test ./scripts/test-r2-storage.mjs ./scripts/test-r2-media.mjs",
     "test:requirements": "node --test ./scripts/test-requirements.mjs",
+    "test:page-background": "node --test ./scripts/test-page-background.mjs",
     "migrate:media": "node ./scripts/migrate-media-to-r2.mjs"
   },
   "private": true,

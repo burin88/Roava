@@ -1,0 +1,80 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+import postcss from 'postcss';
+
+// Read styles in the same order as the application build. Resolve the cascade
+// for the document canvas, where :root outranks a plain html selector.
+const config = JSON.parse(await readFile('angular.json', 'utf8'));
+const sheets = await Promise.all(
+  config.projects['asia-travel-atlas'].architect.build.options.styles
+    .map(async file => postcss.parse(await readFile(file, 'utf8'))),
+);
+
+function documentStyle(element, theme) {
+  const winners = new Map();
+  for (const sheet of sheets) {
+    sheet.walkRules(rule => {
+      if (rule.parent.type !== 'root') return;
+      for (const selector of rule.selectors) {
+        const themeSelector = /^\[data-bs-theme=['"]?(light|dark)['"]?\]$/.exec(selector);
+        const matches = selector === element || selector === '*' ||
+          (element === 'html' && (selector === ':root' || themeSelector?.[1] === theme));
+        if (!matches) continue;
+        const specificity = selector === ':root' || themeSelector ? 10 : selector === '*' ? 0 : 1;
+        rule.walkDecls(decl => {
+          const priority = specificity + (decl.important ? 1000 : 0);
+          if (priority >= (winners.get(decl.prop)?.priority ?? -1)) {
+            winners.set(decl.prop, { priority, value: decl.value });
+          }
+        });
+      }
+    });
+  }
+  return Object.fromEntries([...winners].map(([property, entry]) => [property, entry.value]));
+}
+
+for (const theme of ['light', 'dark']) {
+  test(`${theme} document canvas and body use the same active page background`, () => {
+    const root = documentStyle('html', theme);
+    const body = documentStyle('body', theme);
+    const resolve = value => value.replace(/var\((--[\w-]+)\)/g, (_, name) => root[name]);
+    assert.equal(resolve(root.background), resolve(body.background),
+      'The canvas exposed below short Requirements content must match the body');
+    assert.match(resolve(root.background), /radial-gradient/);
+    assert.equal(root['color-scheme'], theme);
+    assert.equal(root['background-attachment'], 'fixed');
+    assert.equal(body['background-attachment'], 'fixed',
+      'Canvas and body gradients must share the viewport origin as content grows');
+  });
+}
+
+test('switching themes updates both page layers to the final theme palette', () => {
+  const light = documentStyle('html', 'light');
+  const dark = documentStyle('html', 'dark');
+  assert.notEqual(light['--atlas-bg'], dark['--atlas-bg']);
+  for (const theme of ['light', 'dark']) {
+    const root = documentStyle('html', theme);
+    for (const element of ['html', 'body']) {
+      assert.equal(documentStyle(element, theme).background, 'var(--atlas-bg)',
+        `${element} must follow theme changes instead of retaining a hard-coded colour`);
+    }
+    assert.equal(root['--atlas-bg'], theme === 'light'
+      ? 'radial-gradient(circle at 50% -20%, #dceef9 0, #f4f9fc 45%, #eaf3f8 100%)'
+      : 'radial-gradient(circle at 50% -20%, #12334c 0, #091f2f 43%, #061924 100%)');
+  }
+});
+
+test('short pages fill the viewport while long Requirements content can grow', () => {
+  const body = documentStyle('body', 'light');
+  assert.equal(body['min-height'], '100dvh');
+  const fallback = [];
+  for (const sheet of sheets) sheet.walkRules(rule => {
+    if (rule.parent.type === 'root' && rule.selectors.includes('body')) {
+      rule.walkDecls('min-height', decl => fallback.push(decl.value));
+    }
+  });
+  assert.ok(fallback.includes('100vh'), 'Provide a fallback for older browsers');
+  assert.equal(body.height, undefined, 'Avoid clipping long tables and the editor');
+  assert.equal(body.overflow, undefined, 'Keep document scrolling available');
+});
