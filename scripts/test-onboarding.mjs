@@ -21,6 +21,7 @@ function fixture(pathname, previouslyVisited) {
   const stored = new Map(previouslyVisited ? [['atlas-showcase-onboarding-v1', '1']] : []);
   const router = { navigate: async route => { navigations.push(route); }, url: pathname };
   let service;
+  let onboardingInjections = 0;
   const core = {
     Component: () => target => target,
     Injectable: () => target => target,
@@ -34,7 +35,7 @@ function fixture(pathname, previouslyVisited) {
     effect: callback => effects.push(callback),
     afterNextRender: callback => rendered.push(callback),
     inject: token => token === core.DestroyRef ? { onDestroy: callback => cleanup.push(callback) }
-      : token === OnboardingTourService ? service
+      : token === OnboardingTourService ? (onboardingInjections++, service)
       : token === Router ? router : {},
   };
   class Router {}
@@ -69,6 +70,7 @@ function fixture(pathname, previouslyVisited) {
   const app = new appExports.App();
   return {
     app, service, tours, navigations,
+    get onboardingInjections() { return onboardingInjections; },
     render() { effects.forEach(callback => callback()); rendered.forEach(callback => callback()); },
     destroy() { cleanup.forEach(callback => callback()); },
   };
@@ -80,32 +82,19 @@ for (const previouslyVisited of [false, true]) {
       const f = fixture(path, previouslyVisited);
       f.render();
       await new Promise(resolve => setImmediate(resolve));
+      assert.equal(f.onboardingInjections, 0);
       assert.equal(f.tours.length, 0);
       assert.equal(f.navigations.length, 0);
     });
   }
 }
 
-test('How to use button remains accessible and bound to the manual tour action', () => {
+test('How to use button remains accessible without an onboarding action', () => {
   const template = fs.readFileSync('src/app/app.html', 'utf8');
-  const button = template.match(/<button\b[^>]*\(click\)="openOnboarding\(\)"[^>]*>[\s\S]*?<\/button>/)?.[0];
-  assert.ok(button, 'The manual onboarding button must remain in the template');
+  const button = template.match(/<button\b[^>]*aria-label="[^"]+"[^>]*>[\s\S]*?<\/button>/)?.[0];
+  assert.ok(button, 'The How to use button must remain in the template');
   assert.match(button, /aria-label="เปิดคำแนะนำการใช้งาน"/);
   assert.match(button, /วิธีใช้/);
+  assert.doesNotMatch(button, /\([^)]*click[^)]*\)|routerLink|href=|disabled/);
+  assert.equal(fixture('/trips', false).app.openOnboarding, undefined);
 });
-
-for (const previouslyVisited of [false, true]) {
-  test(`manual onboarding can launch, close, and reopen for a ${previouslyVisited ? 'returning' : 'first-time'} visitor`, async () => {
-    const f = fixture('/continent/AS', previouslyVisited);
-    f.render();
-    for (let attempt = 0; attempt < 2; attempt++) {
-      f.app.openOnboarding();
-      await new Promise(resolve => setImmediate(resolve));
-      assert.equal(f.tours.length, attempt + 1);
-      assert.equal(f.tours[attempt].drives, 1);
-      assert.equal(f.navigations[attempt][0], '/trips');
-      f.tours[attempt].destroy();
-    }
-    f.destroy();
-  });
-}

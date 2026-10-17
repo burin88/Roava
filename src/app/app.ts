@@ -1,6 +1,5 @@
 import { Component, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { OnboardingTourService } from './shared/onboarding/onboarding-tour.service';
 import { SupabaseService } from './core/auth/supabase.service';
 import { Login } from './features/auth/login';
 import { AuthenticatedWorkspace } from './shared/authenticated-workspace';
@@ -16,7 +15,6 @@ export class App {
   readonly signOutError = signal('');
   readonly router = inject(Router);
   readonly theme = signal<'dark' | 'light'>(this.loadTheme());
-  private readonly onboarding = inject(OnboardingTourService);
 
   constructor() {
     effect(() => {
@@ -33,11 +31,6 @@ export class App {
   async signOut(): Promise<void> {
     try { await this.auth.signOut(); }
     catch { this.signOutError.set('ออกจากระบบไม่สำเร็จ กรุณาลองอีกครั้ง'); }
-  }
-
-  openOnboarding(): void {
-    // Keep the tour opt-in through the How to use button, including on first visits.
-    void this.onboarding.start();
   }
 
   private loadTheme(): 'dark' | 'light' {
