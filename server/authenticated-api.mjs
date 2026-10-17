@@ -12,7 +12,7 @@ function lazyStorage(factory) {
   }]));
 }
 
-/** Public Requirements routing; other resources validate access tokens and use RLS. */
+/** Requirements allow anonymous access; supplied tokens are validated and forwarded for RLS. */
 export async function handleAuthenticatedApi(request, storageFactory, env = process.env, fetcher = fetch) {
   try {
     const config = publicSupabaseConfig(env);
@@ -20,17 +20,21 @@ export async function handleAuthenticatedApi(request, storageFactory, env = proc
     if (pathname === '/api/config') {
       return request.method === 'GET' ? json(200, config) : json(405, { error: 'Method not allowed' });
     }
-    const requirementResponse = await handleRequirementsApi(request, {
-      config, headers: { apikey: config.publishableKey, 'content-type': 'application/json' }, fetcher,
-    });
-    if (requirementResponse) return requirementResponse;
     const authorization = request.headers.get('authorization');
+    if (!authorization) {
+      const requirementResponse = await handleRequirementsApi(request, {
+        config, headers: { apikey: config.publishableKey, 'content-type': 'application/json' }, fetcher,
+      });
+      if (requirementResponse) return requirementResponse;
+    }
     if (!authorization?.startsWith('Bearer ')) return json(401, { error: 'กรุณาเข้าสู่ระบบ' });
     const headers = { apikey: config.publishableKey, authorization, 'content-type': 'application/json' };
     const userResponse = await fetcher(`${config.url}/auth/v1/user`, { headers, signal: AbortSignal.timeout(15000) });
     if (!userResponse.ok) return json(userResponse.status >= 500 ? 502 : 401, { error: 'ตรวจสอบบัญชีไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง' });
     const user = await userResponse.json();
     if (!user.id) return json(401, { error: 'Invalid session' });
+    const requirementResponse = await handleRequirementsApi(request, { config, headers, fetcher, user });
+    if (requirementResponse) return requirementResponse;
     async function db(table, query = '', method = 'GET', body, prefer) {
       const response = await fetcher(`${config.url}/rest/v1/${table}${query}`, {
         method, headers: { ...headers, ...(prefer ? { prefer } : {}) },

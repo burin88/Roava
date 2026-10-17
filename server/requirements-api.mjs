@@ -2,7 +2,7 @@ const masters = { 'requirement-types': 'master_requirement_type', 'requirement-p
 const fields = { requirement_type: masters['requirement-types'], priority: masters['requirement-priorities'], status: masters['requirement-statuses'] };
 const fail = (status, message, fields = {}) => { throw Object.assign(new Error(message), { status, fields }); };
 const json = (status, value) => Response.json(value, { status, headers: { 'cache-control': 'no-store' } });
-export async function handleRequirementsApi(request, { config, headers, fetcher }) {
+export async function handleRequirementsApi(request, { config, headers, fetcher, user }) {
   const url = new URL(request.url), path = url.pathname;
   if (!/^\/api\/(requirements|requirement-prs|masters)(\/|$)/.test(path)) return null;
   try {
@@ -103,8 +103,8 @@ export async function handleRequirementsApi(request, { config, headers, fetcher 
       }
     }
     if (Object.keys(errors).length) fail(422, 'กรุณาตรวจสอบข้อมูล', errors);
-    if (creating) data.created_by = 'anonymous';
-    else { data.modified_by = 'anonymous'; data.modified_at = new Date().toISOString(); }
+    if (creating) data.created_by = user?.id ?? 'anonymous';
+    else { data.modified_by = user?.id ?? 'anonymous'; data.modified_at = new Date().toISOString(); }
     const result = await db(table, creating ? {} : { id: `eq.${id}`, valid: 'eq.true' }, creating ? 'POST' : 'PATCH', data);
     if (!result.rows[0]) fail(404, 'ไม่พบรายการ');
     return json(creating ? 201 : 200, result.rows[0]);

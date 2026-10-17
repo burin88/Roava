@@ -118,6 +118,8 @@ function fixture({ inactive = false, duplicate = false, missing = false } = {}) 
   const calls = [];
   const fetcher = async (url, options = {}) => {
     const u = new URL(url), table = u.pathname.split('/').at(-1), method = options.method || 'GET';
+    const authorization = new Headers(options.headers).get('authorization');
+    assert.ok(authorization === null || authorization === 'Bearer token');
     calls.push({ table, params: u.searchParams, method, body: options.body && JSON.parse(options.body) });
     if (u.pathname === '/auth/v1/user') return Response.json({ id: testOwner });
     if (method === 'GET') {
@@ -144,7 +146,7 @@ test('API validates pagination/JSON/IDs and keeps unsupported methods protected'
   assert.equal((await f.send('requirements/no-id')).status,404);
   assert.equal((await f.send('requirements','DELETE')).status,405);
 });
-test('Requirements route directly without auth checks; unsupported methods return 405 and unrelated APIs require auth',async()=>{
+test('Anonymous Requirements requests skip auth; unsupported methods return 405 and unrelated APIs require auth',async()=>{
   const f=fixture();
   for(const path of ['requirements',`requirements/${id}`,'masters/requirement-types','masters/requirement-priorities','masters/requirement-statuses']) {
     assert.equal((await f.send(path,'GET',undefined,false)).status,200);
@@ -173,17 +175,30 @@ test('API list sorts and paginates at DB, returns filtered count, quotes search 
   assert.equal(call.params.get('offset'),'20'); assert.equal(call.params.get('status'),'eq.PENDING');
   assert.ok(call.params.get('or').includes('x\\"'));
 });
-test('Requirements ignores supplied Authorization and never calls Auth or forwards credentials',async()=>{
-  for (const authorization of [null,'Bearer expired-token','malformed-header']) {
+test('Requirements validates supplied tokens and forwards credentials to every database query',async()=>{
+  for (const path of ['requirements',`requirements/${id}`,'masters/requirement-types','masters/requirement-priorities','masters/requirement-statuses',`requirement-prs/${prId}`]) {
+    const calls=[];
+    const response=await handleAuthenticatedApi(new Request(`https://app.test/api/${path}`,{
+      headers:{authorization:'Bearer valid-token'},
+    }),()=>{throw Error('No storage needed');},testEnv,async(url,options)=>{
+      calls.push(url);
+      assert.equal(new Headers(options.headers).get('authorization'),'Bearer valid-token');
+      assert.equal(new Headers(options.headers).get('apikey'),testEnv.SUPABASE_PUBLISHABLE_KEY);
+      if(url.includes('/auth/')) return Response.json({id:testOwner});
+      return Response.json([{id}],{headers:{'content-range':'0-0/1'}});
+    });
+    assert.equal(response.status,path.startsWith('requirement-prs/')?405:200);
+    assert.ok(calls[0].includes('/auth/v1/user'));
+  }
+  for (const authorization of ['Bearer expired-token','malformed-header']) {
     const calls=[];
     const response=await handleAuthenticatedApi(new Request('https://app.test/api/requirements',{
       headers:authorization?{authorization}:{},
     }),()=>{throw Error('No storage needed');},testEnv,async(url,options)=>{
-      calls.push(url); assert.ok(!url.includes('/auth/'));
-      assert.equal(new Headers(options.headers).has('authorization'),false);
-      return Response.json([],{headers:{'content-range':'*/0'}});
+      calls.push(url); assert.ok(url.includes('/auth/'));
+      return Response.json({error:'expired'},{status:401});
     });
-    assert.equal(response.status,200); assert.equal(calls.length,1);
+    assert.equal(response.status,401); assert.equal(calls.length,authorization.startsWith('Bearer ')?1:0);
   }
 });
 test('API lookups use valid and database sort; detail returns PRs in descending order',async()=>{
@@ -194,7 +209,7 @@ test('API lookups use valid and database sort; detail returns PRs in descending 
 test('API create defaults, trims title and excludes forged audit/identity',async()=>{
   const f=fixture(); const response=await f.send('requirements','POST',{ title:'  good  ',created_by:'attacker',id:other,valid:false });
   assert.equal(response.status,201);
-  const body=f.calls.at(-1).body; assert.equal(body.title,'good'); assert.equal(body.created_by,'anonymous'); assert.equal(body.id,undefined); assert.equal(body.valid,undefined);
+  const body=f.calls.at(-1).body; assert.equal(body.title,'good'); assert.equal(body.created_by,testOwner); assert.equal(body.id,undefined); assert.equal(body.valid,undefined);
   assert.equal(body.requirement_type,'FEATURE'); assert.equal(body.priority,'MEDIUM'); assert.equal(body.status,'PENDING');
 });
 test('API validates fields, inactive masters and preserves unchanged inactive values',async()=>{
@@ -208,7 +223,7 @@ test('API PRs validate HTTPS, enums, lengths and never accept a different parent
   const f=fixture(); assert.equal((await f.send(`requirements/${id}/prs`,'POST',{provider:'GITHUB',pr_url:'https://example.com',requirement_id:other})).status,201);
   assert.equal(f.calls.at(-1).body.requirement_id,id); assert.equal(f.calls.at(-1).body.pr_status,'OPEN');
   assert.equal((await f.send(`requirement-prs/${prId}`,'PATCH',{pr_status:'MERGED',requirement_id:other,created_by:'fake'})).status,200);
-  assert.equal(f.calls.at(-1).body.requirement_id,undefined); assert.equal(f.calls.at(-1).body.created_by,undefined); assert.equal(f.calls.at(-1).body.modified_by,'anonymous');
+  assert.equal(f.calls.at(-1).body.requirement_id,undefined); assert.equal(f.calls.at(-1).body.created_by,undefined); assert.equal(f.calls.at(-1).body.modified_by,testOwner);
 });
 test('API maps duplicate PR to 409 without SQL details and missing/inactive records to 404',async()=>{
   const f=fixture({duplicate:true}); const response=await f.send(`requirements/${id}/prs`,'POST',{provider:'GITHUB',pr_url:'https://example.com'});
@@ -242,7 +257,7 @@ test('UI loads masters, opens empty-state creation, retains input on errors and 
   const exports={}; let rejectSave=false; const requests=[];
   const record={id,title:'new',description:'',requirement_type:'FEATURE',priority:'MEDIUM',status:'PENDING',prs:[]};
   const fetch=async(url,options)=>{
-    assert.equal(new Headers(options.headers).has('authorization'),false);
+    assert.equal(new Headers(options.headers).get('authorization'),signedIn?'Bearer token':null);
     requests.push(url);
     if(options.method==='POST' && rejectSave) return Response.json({error:'invalid',fields:{title:'invalid'}},{status:422});
     if(url.includes('masters/')) return Response.json([{code:'FEATURE',name:'Feature'}]);
@@ -255,6 +270,8 @@ test('UI loads masters, opens empty-state creation, retains input on errors and 
   assert.equal(ui.items().length,0); assert.equal(ui.lookupReady(),true); ui.create(); assert.equal(ui.editing(),true); assert.equal(ui.form.priority,'MEDIUM');
   ui.form.title='typed'; rejectSave=true; await ui.save(); assert.equal(ui.form.title,'typed'); assert.equal(ui.fields().title,'invalid'); assert.equal(ui.saving(),false);
   rejectSave=false; await ui.save(); assert.equal(ui.detail().id,id); assert.equal(ui.editing(),true); assert.ok(ui.success());
+  ui.openPR(); await ui.savePR(); assert.equal(ui.prError(),'');
+  ui.openPR({id:prId,provider:'GITHUB',pr_url:'https://example.com',pr_status:'OPEN'}); await ui.savePR(); assert.equal(ui.prError(),'');
   signedIn=false; await ui.initialize(); assert.equal(ui.error(),'');
   const before=requests.length; ui.create(); ui.form.title='anonymous'; await ui.save(); assert.ok(requests.length>before); assert.equal(ui.formError(),'');
   ui.openPR(); await ui.savePR(); assert.equal(ui.prError(),''); assert.ok(requests.some(path=>path===`/api/requirements/${id}/prs`));
