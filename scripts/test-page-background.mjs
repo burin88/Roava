@@ -11,9 +11,9 @@ const sheets = await Promise.all(
     .map(async file => postcss.parse(await readFile(file, 'utf8'))),
 );
 
-function documentStyle(element, theme) {
+function documentStyle(element, theme, stylesheets = sheets) {
   const winners = new Map();
-  for (const sheet of sheets) {
+  for (const sheet of stylesheets) {
     sheet.walkRules(rule => {
       if (rule.parent.type !== 'root') return;
       for (const selector of rule.selectors) {
@@ -24,8 +24,16 @@ function documentStyle(element, theme) {
         const specificity = selector === ':root' || themeSelector ? 10 : selector === '*' ? 0 : 1;
         rule.walkDecls(decl => {
           const priority = specificity + (decl.important ? 1000 : 0);
-          if (priority >= (winners.get(decl.prop)?.priority ?? -1)) {
-            winners.set(decl.prop, { priority, value: decl.value });
+          const set = (property, value) => {
+            if (priority >= (winners.get(property)?.priority ?? -1)) {
+              winners.set(property, { priority, value });
+            }
+          };
+          set(decl.prop, decl.value);
+          // A background shorthand resets omitted longhands, even when a
+          // lower-specificity rule explicitly sets background-attachment.
+          if (decl.prop === 'background') {
+            set('background-attachment', /\b(fixed|local|scroll)\b/.exec(decl.value)?.[1] ?? 'scroll');
           }
         });
       }
@@ -33,6 +41,15 @@ function documentStyle(element, theme) {
   }
   return Object.fromEntries([...winners].map(([property, entry]) => [property, entry.value]));
 }
+
+test('canvas cascade accounts for background shorthand attachment resets', () => {
+  const styles = [postcss.parse(`
+    :root { background: var(--atlas-bg); }
+    html, body { background: var(--atlas-bg); background-attachment: fixed; }
+  `)];
+  assert.equal(documentStyle('html', 'light', styles)['background-attachment'], 'scroll');
+  assert.equal(documentStyle('body', 'light', styles)['background-attachment'], 'fixed');
+});
 
 for (const theme of ['light', 'dark']) {
   test(`${theme} document canvas and body use the same active page background`, () => {
