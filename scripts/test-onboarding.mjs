@@ -77,6 +77,16 @@ function fixture(pathname, previouslyVisited) {
 }
 
 for (const previouslyVisited of [false, true]) {
+  test(`${previouslyVisited ? 'returning' : 'first-time'} visitor cannot start onboarding explicitly`, async () => {
+    const f = fixture('/beijing', previouslyVisited);
+    await f.service.start();
+    await f.service.start();
+    f.render();
+    assert.equal(f.tours.length, 0, 'Explicit starts must never create a tour');
+    assert.equal(f.navigations.length, 0, 'Explicit starts must preserve the current page');
+    f.destroy();
+  });
+
   for (const path of ['/', '/trips', '/beijing', '/continent/AS', '/requirements']) {
     test(`${previouslyVisited ? 'returning' : 'first-time'} visit to ${path} does not launch onboarding or navigate`, async () => {
       const f = fixture(path, previouslyVisited);
