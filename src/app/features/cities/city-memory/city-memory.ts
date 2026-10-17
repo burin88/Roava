@@ -80,7 +80,6 @@ export class CityMemory implements OnDestroy {
   closePlaceEditor(): void { this.clearPlacePhotoDraft(); this.placeEditorOpen.set(false); }
   setPlaceTimeFormat(format: TimeFormat): void { if (format === this.placeTimeFormat) return; if (format === '12h') { this.update24HourTime(); this.sync12HourTime(); } else { this.sync24HourTime(); this.sync24HourFields(); } this.placeTimeFormat = format; }
   update24HourTime(): void { this.placeHour24 = Math.max(0, Math.min(23, Number(this.placeHour24) || 0)); this.placeMinute24 = Math.max(0, Math.min(59, Number(this.placeMinute24) || 0)); this.placeModel.time = `${String(this.placeHour24).padStart(2, '0')}:${String(this.placeMinute24).padStart(2, '0')}`; }
-  inferredMeridiem(): 'AM' | 'PM' { return this.placeHour24 >= 12 ? 'PM' : 'AM'; }
   update12HourTime(): void { this.sync24HourTime(); }
   addPlacePhotos(event: Event): void {
     const input = event.target as HTMLInputElement;

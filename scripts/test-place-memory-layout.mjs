@@ -50,6 +50,33 @@ test('place editor template parses and the time toggle belongs to its own headin
   }
 });
 
+test('24-hour mode has only hour and minute fields while 12-hour mode retains AM/PM', () => {
+  const parsed = parseTemplate(template, `${base}.html`);
+  assert.equal(parsed.errors, null);
+  const branches = [];
+  function visit(nodes) {
+    for (const node of nodes ?? []) {
+      branches.push(...(node.branches ?? []));
+      visit(node.children);
+      for (const branch of node.branches ?? []) visit(branch.children);
+    }
+  }
+  visit(parsed.nodes);
+  const branch = branches.find(node => node.expression?.source === "placeTimeFormat === '24h'");
+  assert.ok(branch, '24-hour controls must be conditional on the selected format');
+  const row = branch.children.find(node => node.attributes?.some(attr => attr.value === 'time-24-input'));
+  assert.deepEqual(row.children.map(node => node.name), ['input', 'span', 'input'],
+    '24-hour mode must not render a meridiem badge or selector');
+  const help = branch.children.find(node => node.name === 'small');
+  assert.doesNotMatch(help.children.map(node => node.value ?? '').join(''), /AM|PM/);
+  const alternate = branches.find(node => !node.expression && node.children.some(child =>
+    child.attributes?.some(attr => attr.value === 'time-12-input')));
+  const selector = alternate?.children[0].children.find(node =>
+    node.attributes?.some(attr => attr.name === 'name' && attr.value === 'placeMeridiem'));
+  assert.ok(selector, '12-hour mode still needs its AM/PM selector');
+  assert.deepEqual(selector.children.map(node => node.attributes.find(attr => attr.name === 'value')?.value), ['AM', 'PM']);
+});
+
 for (const width of [320, 375, 390, 600, 768, 1024]) {
   test(`date and time have sufficient layout space at ${width}px`, () => {
     const row = style(['.form-row', '.place-modal .form-row'], width);
@@ -58,10 +85,10 @@ for (const width of [320, 375, 390, 600, 768, 1024]) {
     assert.equal(style(['.place-time-heading'], width)['flex-wrap'], 'wrap');
     assert.ok(!['absolute', 'fixed'].includes(style(['.time-format-toggle'], width).position),
       'Format toggle must take up space so it cannot cover the Time label');
-    for (const mode of ['.time-12-input', '.time-24-input']) {
-      assert.equal(style([mode], width)['grid-template-columns'],
-        'minmax(0, 1fr) auto minmax(0, 1fr) minmax(54px, 1fr)');
-    }
+    assert.equal(style(['.time-12-input'], width)['grid-template-columns'],
+      'minmax(0, 1fr) auto minmax(0, 1fr) minmax(54px, 1fr)');
+    assert.equal(style(['.time-24-input'], width)['grid-template-columns'],
+      'minmax(0, 1fr) auto minmax(0, 1fr)');
     for (const control of ['input', 'select', 'textarea']) {
       const field = style([`.mini-modal ${control}`, `.place-modal ${control}`], width);
       assert.equal(field.width, '100%');
