@@ -18,7 +18,7 @@
     "test:media-requests": "node --test ./scripts/test-media-requests.mjs",
     "test:browser-media": "node --test ./scripts/test-browser-media.mjs",
     "test:r2": "node --test ./scripts/test-r2-storage.mjs ./scripts/test-r2-media.mjs",
-    "test:requirements": "node --test ./scripts/test-requirements.mjs ./scripts/test-requirement-attachments.mjs ./scripts/test-r2-public-url.mjs",
+    "test:requirements": "node --test ./scripts/test-requirement-pages.mjs ./scripts/test-requirements.mjs ./scripts/test-requirement-attachments.mjs ./scripts/test-r2-public-url.mjs",
     "test:page-background": "node --test ./scripts/test-page-background.mjs",
     "migrate:media": "node ./scripts/migrate-media-to-r2.mjs"
   },

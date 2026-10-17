@@ -26,7 +26,7 @@ export class App {
   }
 
   setTheme(theme: 'dark' | 'light'): void { this.theme.set(theme); }
-  anonymousRequirements(): boolean { return /^\/requirements\/?$/.test(this.router.url.split(/[?#]/)[0]); }
+  anonymousRequirements(): boolean { return /^\/requirements(?:\/[^/]+)?\/?$/.test(this.router.url.split(/[?#]/)[0]); }
   retry(): void { window.location.reload(); }
   async signOut(): Promise<void> {
     try { await this.auth.signOut(); }

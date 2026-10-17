@@ -206,7 +206,7 @@ test('requirement writes accept only ready requirement images from the uploader 
 test('UI appends multiple images, retries partial uploads without duplicates, preserves a failed save and removes images individually', async () => {
   const source=ts.transpileModule(await readFile(new URL('../src/app/features/requirements/requirements.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,experimentalDecorators:true}}).outputText;
   const signal=value=>Object.assign(()=>value,{set:next=>{value=next;}});
-  class SupabaseService {} class ApiMediaStorage {}
+  class SupabaseService {} class ApiMediaStorage {} class ActivatedRoute {} class Router {}
   let uploads=0,reject=true,failSecond=true; const revoked=[]; let saved=[];
   const media={save:async(file,trip,place,type)=>{assert.equal(type,'requirement');uploads++;
     if(file.name==='second.png' && failSecond) throw Error('upload failed');
@@ -224,7 +224,7 @@ test('UI appends multiple images, retries partial uploads without duplicates, pr
     if(url.includes('/images/')) return new Response(new Uint8Array([1]),{headers:{'content-type':'image/png'}});
     return Response.json({id:requirement,title:'image',requirement_type:'FEATURE',priority:'MEDIUM',status:'PENDING',attachments:saved,prs:[]});
   };
-  vm.runInNewContext(source,{exports,Error,URL:TestURL,URLSearchParams,AbortSignal,fetch:fetcher,setTimeout:fn=>fn(),require:name=>name==='@angular/core'?{Component:()=>()=>{},ViewChild:()=>()=>{},signal,inject:type=>type===ApiMediaStorage?media:auth}:name.includes('api-media.storage')?{ApiMediaStorage}:name.includes('supabase.service')?{SupabaseService}:name==='@angular/common'?{DatePipe:class{}}:{FormsModule:class{}}});
+  vm.runInNewContext(source,{exports,Error,URL:TestURL,URLSearchParams,AbortSignal,fetch:fetcher,setTimeout:fn=>fn(),require:name=>name==='@angular/core'?{Component:()=>()=>{},ViewChild:()=>()=>{},signal,inject:type=>type===ApiMediaStorage?media:type===ActivatedRoute?{snapshot:{data:{editor:true},paramMap:{get:()=>null}}}:type===Router?{navigate:async()=>true}:auth}:name.includes('api-media.storage')?{ApiMediaStorage}:name.includes('supabase.service')?{SupabaseService}:name==='@angular/router'?{ActivatedRoute,Router,RouterLink:class{}}:name==='@angular/common'?{DatePipe:class{}}:{FormsModule:class{}}});
   const ui=new exports.Requirements(); await ui.initialize(); ui.create(); ui.form.title='image';
   const input={files:[{name:'test.png',size:12,type:'image/png'}],value:'selected'};
   ui.chooseImage({target:input}); assert.equal(input.value,''); assert.equal(ui.images()[0].url,'blob:test');
