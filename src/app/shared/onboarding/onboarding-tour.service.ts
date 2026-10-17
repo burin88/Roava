@@ -5,16 +5,11 @@ import { Driver, DriveStep, driver } from 'driver.js';
 @Injectable({ providedIn: 'root' })
 export class OnboardingTourService {
   private readonly router = inject(Router);
-  private readonly storageKey = 'atlas-showcase-onboarding-v1';
   private tour?: Driver;
   private starting = false;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => this.tour?.destroy());
-  }
-
-  startIfFirstVisit(): void {
-    if (!localStorage.getItem(this.storageKey)) void this.start();
   }
 
   async start(): Promise<void> {
@@ -47,7 +42,6 @@ export class OnboardingTourService {
         doneBtnText: 'เริ่มใช้งาน',
         steps: this.steps(),
         onDestroyed: () => {
-          localStorage.setItem(this.storageKey, '1');
           this.tour = undefined;
         },
       });

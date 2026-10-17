@@ -1,4 +1,4 @@
-import { Component, afterNextRender, effect, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { OnboardingTourService } from './shared/onboarding/onboarding-tour.service';
 import { SupabaseService } from './core/auth/supabase.service';
@@ -25,11 +25,6 @@ export class App {
       document.documentElement.style.colorScheme = theme;
       localStorage.setItem('atlas-theme', theme);
     });
-    afterNextRender(() => {
-      if (window.location.pathname !== '/beijing' && window.location.pathname !== '/') {
-        this.onboarding.startIfFirstVisit();
-      }
-    });
   }
 
   setTheme(theme: 'dark' | 'light'): void { this.theme.set(theme); }
@@ -41,6 +36,7 @@ export class App {
   }
 
   openOnboarding(): void {
+    // Keep the tour opt-in through the How to use button, including on first visits.
     void this.onboarding.start();
   }
 
