@@ -10,6 +10,51 @@ const sheets = await Promise.all(
   config.projects['asia-travel-atlas'].architect.build.options.styles
     .map(async file => postcss.parse(await readFile(file, 'utf8'))),
 );
+const appSheet = postcss.parse(await readFile('src/app/app.css', 'utf8'));
+const appTemplate = await readFile('src/app/app.html', 'utf8');
+const bootstrapSheet = postcss.parse(await readFile('node_modules/bootstrap/dist/css/bootstrap.css', 'utf8'));
+
+function appStyle(selector) {
+  const declarations = {};
+  appSheet.walkRules(rule => {
+    if (rule.parent.type === 'root' && rule.selectors.includes(selector)) {
+      rule.walkDecls(decl => { declarations[decl.prop] = decl.value; });
+    }
+  });
+  return declarations;
+}
+
+test('Requirements paints a solid theme surface across the full main area', () => {
+  assert.match(appTemplate, /<main \[class\.requirements-page\]="anonymousRequirements\(\)">/);
+  const main = appStyle('main.requirements-page');
+  assert.equal(main.background, 'var(--bs-body-bg)');
+  for (const theme of ['light', 'dark']) {
+    const palette = documentStyle('html', theme, [bootstrapSheet, ...sheets]);
+    assert.match(palette['--bs-body-bg'], /^#(?:[\da-f]{3}|[\da-f]{6})$/i,
+      'Use a solid surface in either theme instead of the canvas gradient');
+  }
+  assert.notEqual(
+    documentStyle('html', 'light', [bootstrapSheet])['--bs-body-bg'],
+    documentStyle('html', 'dark', [bootstrapSheet])['--bs-body-bg'],
+  );
+});
+
+test('Requirements fills short viewports and grows below a wrapping mobile header', () => {
+  const host = appStyle(':host');
+  assert.equal(host.display, 'flex');
+  assert.equal(host['flex-direction'], 'column');
+  assert.equal(host['min-height'], '100dvh');
+  assert.ok(appSheet.toString().includes('min-height:100vh'), 'Keep the viewport fallback');
+  assert.equal(appStyle('.app-header')['flex-shrink'], '0');
+  const main = appStyle('main.requirements-page');
+  assert.equal(main.flex, '1 0 auto', 'Fill remaining height without shrinking long content');
+  for (const style of [host, main]) {
+    assert.equal(style.height, undefined, 'Allow content and header height to grow');
+    assert.equal(style['max-height'], undefined);
+    assert.equal(style.overflow, undefined, 'Preserve document scrolling');
+    assert.equal(style['max-width'], undefined, 'Paint beyond the constrained content column');
+  }
+});
 
 function documentStyle(element, theme, stylesheets = sheets) {
   const winners = new Map();
