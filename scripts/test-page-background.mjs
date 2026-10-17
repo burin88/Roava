@@ -56,17 +56,18 @@ test('Requirements fills short viewports and grows below a wrapping mobile heade
   }
 });
 
-function documentStyle(element, theme, stylesheets = sheets) {
+function documentStyle(element, theme, stylesheets = sheets, requirements = false) {
   const winners = new Map();
   for (const sheet of stylesheets) {
     sheet.walkRules(rule => {
       if (rule.parent.type !== 'root') return;
       for (const selector of rule.selectors) {
         const themeSelector = /^\[data-bs-theme=['"]?(light|dark)['"]?\]$/.exec(selector);
-        const matches = selector === element || selector === '*' ||
+        const requirementsCanvas = requirements && element === 'html' && selector === 'html:has(main.requirements-page)';
+        const matches = requirementsCanvas || selector === element || selector === '*' ||
           (element === 'html' && (selector === ':root' || themeSelector?.[1] === theme));
         if (!matches) continue;
-        const specificity = selector === ':root' || themeSelector ? 10 : selector === '*' ? 0 : 1;
+        const specificity = requirementsCanvas ? 12 : selector === ':root' || themeSelector ? 10 : selector === '*' ? 0 : 1;
         rule.walkDecls(decl => {
           const priority = specificity + (decl.important ? 1000 : 0);
           const set = (property, value) => {
@@ -86,6 +87,20 @@ function documentStyle(element, theme, stylesheets = sheets) {
   }
   return Object.fromEntries([...winners].map(([property, entry]) => [property, entry.value]));
 }
+
+test('Requirements uses the same solid surface on main and the document in either theme', () => {
+  // Include Bootstrap, which supplies --bs-body-bg, and all application sheets
+  // in build order. The route selector must beat the existing :root gradient.
+  for (const theme of ['light', 'dark']) {
+    const styles = [bootstrapSheet, ...sheets];
+    const canvas = documentStyle('html', theme, styles, true);
+    assert.equal(canvas.background, appStyle('main.requirements-page').background);
+    assert.match(canvas['--bs-body-bg'], /^#(?:[\da-f]{3}|[\da-f]{6})$/i);
+    assert.equal(documentStyle('body', theme, styles, true).background, 'transparent');
+    assert.equal(documentStyle('html', theme, styles, false).background, 'var(--atlas-bg)',
+      'Leaving Requirements restores the atlas canvas');
+  }
+});
 
 test('canvas cascade accounts for background shorthand attachment resets', () => {
   const styles = [postcss.parse(`

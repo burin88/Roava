@@ -11,3 +11,7 @@
 /* Paint the gradient once on the document. A second body gradient can form a
  * visible seam on browsers that render fixed backgrounds as scrolling ones. */
 body { min-height: 100vh; min-height: 100dvh; background: transparent; }
+/* Match the Requirements main surface on the document canvas too, including
+ * behind the translucent header and outside the content during overscroll.
+ * Follow the route class so other pages retain their atlas gradient. */
+html:has(main.requirements-page) { background: var(--bs-body-bg); }
