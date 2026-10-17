@@ -99,12 +99,35 @@ for (const previouslyVisited of [false, true]) {
   }
 }
 
-test('How to use button remains accessible without an onboarding action', () => {
+test('disabled onboarding starts without accessing browser APIs or storage', async () => {
+  const exports = {};
+  const context = {
+    exports,
+    require: name => {
+      assert.equal(name, '@angular/core', 'Disabled onboarding must not load tour dependencies');
+      return { Injectable: () => target => target };
+    },
+  };
+  for (const name of ['window', 'document', 'localStorage', 'sessionStorage']) {
+    Object.defineProperty(context, name, {
+      get() { assert.fail(`Disabled onboarding must not access ${name}`); },
+    });
+  }
+  vm.runInNewContext(compile('src/app/shared/onboarding/onboarding-tour.service.ts'), context);
+  const service = new exports.OnboardingTourService();
+  await service.start();
+  await service.start();
+});
+
+test('How to use button remains visible and natively disabled without an onboarding action', () => {
   const template = fs.readFileSync('src/app/app.html', 'utf8');
   const button = template.match(/<button\b[^>]*aria-label="[^"]+"[^>]*>[\s\S]*?<\/button>/)?.[0];
   assert.ok(button, 'The How to use button must remain in the template');
   assert.match(button, /aria-label="เปิดคำแนะนำการใช้งาน"/);
   assert.match(button, /วิธีใช้/);
-  assert.doesNotMatch(button, /\([^)]*click[^)]*\)|routerLink|href=|disabled/);
+  assert.match(button, /^<button\b[^>]*\sdisabled(?:\s|>)/, 'Native disabled state must prevent activation');
+  assert.doesNotMatch(button, /\([^)]*\)\s*=|routerLink|href=|\shidden(?:\s|=|>)|\*ngIf|@if/);
+  assert.match(button, /<span class="d-lg-none" aria-hidden="true">\?<\/span>/);
+  assert.match(button, /<span class="d-none d-lg-inline">วิธีใช้<\/span>/);
   assert.equal(fixture('/trips', false).app.openOnboarding, undefined);
 });
