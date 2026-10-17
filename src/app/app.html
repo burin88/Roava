@@ -20,7 +20,7 @@
     @if (auth.user()) { <button class="btn btn-outline-secondary btn-sm" (click)="signOut()">ออกจากระบบ</button> }
   </div>
 </header>
-<main>
+<main [class.requirements-page]="anonymousRequirements()">
   @if (anonymousRequirements()) { <router-outlet /> }
   @else if (!auth.ready()) { <p class="p-5 text-center" role="status">กำลังเชื่อมต่อ…</p> }
   @else if (auth.configError()) { <div class="alert alert-danger m-4" role="alert">{{ auth.configError() }} <button class="btn btn-outline-secondary ms-3" (click)="retry()">ลองใหม่</button></div> }
