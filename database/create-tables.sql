@@ -122,7 +122,7 @@ create table public.attachments (
   modified_at timestamptz not null default now(),
   modified_by varchar(128) not null default auth.uid()::text,
   valid boolean not null default true,
-  type varchar(30) not null check (type in ('trip','place','expense','import')),
+  type varchar(30) not null check (type in ('trip','place','expense','import','requirement')),
   storage_provider varchar(30) not null default 'r2',
   bucket varchar(255),
   path text,

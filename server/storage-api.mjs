@@ -104,6 +104,8 @@ export async function handleStorageApi(request, storageFactory) {
     const file = isMedia ? await media.read(id) : await storage.read(`${filePrefix}${id}`);
     return file ? fileResponse(file, isMedia) : json(404, { error: 'File not found' });
   } catch (error) {
-    return json(error.status ?? 502, { error: error.status ? error.message : 'Cloudflare R2 storage request failed' });
+    return json(error.status ?? 502, { error: error.status ? error.message : 'Cloudflare R2 storage request failed',
+      ...(['R2_BINDING_MISSING', 'R2_RECORD_WRITE_FAILED', 'R2_OBJECT_WRITE_FAILED'].includes(error.code) ? { code: error.code } : {}),
+    });
   }
 }

@@ -20,7 +20,7 @@ export class ApiMediaStorage implements MediaStorage {
   readonly location = 'api' as const;
   private readonly auth = inject(SupabaseService);
 
-  async save(file: File, tripId: string, placeId?: string, type?: 'trip' | 'place' | 'expense' | 'import'): Promise<StoredMedia> {
+  async save(file: File, tripId: string, placeId?: string, type?: 'trip' | 'place' | 'expense' | 'import' | 'requirement'): Promise<StoredMedia> {
     if (file.size > 25 * 1024 * 1024) throw new Error('รูปภาพมีขนาดเกิน 25 MB กรุณาเลือกรูปที่เล็กลง');
     return this.request('/api/media', {
       method: 'POST',
@@ -110,9 +110,18 @@ export class ApiMediaStorage implements MediaStorage {
   }
 
   private async errorMessage(response: Response, fallback: string): Promise<string> {
+    const data = await response.json().catch(() => null) as { error?: string; code?: string } | null;
+    if (data?.code === 'R2_BINDING_MISSING') return 'ยังไม่ได้เชื่อมต่อพื้นที่เก็บรูปบนเซิร์ฟเวอร์ กรุณาตั้งค่า R2 bucket binding ชื่อ R2_STORAGE ใน Cloudflare Pages แล้ว deploy ใหม่';
+    if (data?.code === 'R2_BUCKET_NAME_MISSING') return 'ยังไม่ได้ตั้งชื่อพื้นที่เก็บรูป กรุณาตั้งค่า CLOUDFLARE_R2_BUCKET_NAME ใน Cloudflare Pages ให้ตรงกับ R2 bucket แล้ว deploy ใหม่';
+    const failures: Record<string, string> = {
+      R2_OBJECT_WRITE_FAILED: 'เขียนไฟล์รูปลงพื้นที่เก็บรูปไม่สำเร็จ',
+      R2_RECORD_WRITE_FAILED: 'เขียนข้อมูลกำกับรูปลงพื้นที่เก็บรูปไม่สำเร็จ',
+      MEDIA_PROFILE_FAILED: 'เตรียมบัญชีสำหรับแนบรูปไม่สำเร็จ',
+      MEDIA_METADATA_FAILED: 'บันทึกข้อมูลรูปในฐานข้อมูลไม่สำเร็จ',
+    };
+    if (data?.code && Object.hasOwn(failures, data.code)) return `${failures[data.code]} (${data.code}) กรุณาลองใหม่อีกครั้ง รูปที่เลือกยังอยู่`;
     if ([502,503,504].includes(response.status)) return 'บริการบันทึกรูปภาพยังไม่พร้อม กรุณาลองใหม่อีกครั้ง';
     if (response.status === 404) return 'ไม่พบ API รูปภาพบนเซิร์ฟเวอร์ที่กำลังใช้งาน';
-    try { return (await response.json() as { error?: string }).error ?? fallback; }
-    catch { return fallback; }
+    return typeof data?.error === 'string' ? data.error : fallback;
   }
 }

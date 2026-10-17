@@ -1,22 +1,64 @@
-import { Component, ElementRef, ViewChild, inject, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SupabaseService } from '../../core/auth/supabase.service';
+import { ApiMediaStorage } from '../../core/storage/api-media.storage';
 
 interface Master { id: string; code: string; name: string; sort_sequence: number }
-interface RequirementForm { title: string; description: string; requirement_type: string; priority: string; status: string }
+interface Attachment { id: string; profiles_id: string }
+interface RequirementImage { key: string; id: string | null; profiles_id: string | null; file?: File; url: string; name: string; error: string }
+interface RequirementForm { title: string; description: string; requirement_type: string; priority: string; status: string; attachments: Attachment[] }
 interface PullRequest { id: string; provider: string; repository_name: string; pr_number: string; pr_url: string; pr_status: string }
-interface Requirement extends RequirementForm { id: string; type_name: string; priority_name: string; status_name: string; created_at: string; created_by: string; modified_at: string | null; modified_by: string | null; pr_count: number; prs: PullRequest[] }
+interface Requirement extends RequirementForm { id: string; attachments_id?: string | null; attachments_profiles_id?: string | null; type_name: string; priority_name: string; status_name: string; created_at: string; created_by: string; modified_at: string | null; modified_by: string | null; pr_count: number; prs: PullRequest[] }
 interface List { items: Requirement[]; pagination: { page: number; page_size: number; total: number; total_pages: number } }
 type PRForm = Omit<PullRequest, 'id'>;
-const blank = (): RequirementForm => ({ title: '', description: '', requirement_type: 'FEATURE', priority: 'MEDIUM', status: 'PENDING' });
+const blank = (): RequirementForm => ({ title: '', description: '', requirement_type: 'FEATURE', priority: 'MEDIUM', status: 'PENDING', attachments: [] });
 
 @Component({
-  selector: 'app-requirements', imports: [FormsModule, DatePipe],
+  selector: 'app-requirements', imports: [FormsModule, DatePipe], providers: [ApiMediaStorage],
   templateUrl: './requirements.html', styleUrl: './requirements.css',
 })
-export class Requirements {
+export class Requirements implements OnDestroy {
   private readonly auth = inject(SupabaseService);
+  private readonly media = inject(ApiMediaStorage);
+  readonly images = signal<RequirementImage[]>([]); readonly imageError = signal('');
+  private imageSequence = 0;
+  canAttach(): boolean { return !!this.auth.user(); }
+  private clearImage(): void {
+    for (const image of this.images()) if (image.url) URL.revokeObjectURL(image.url);
+    this.images.set([]); this.imageError.set('');
+  }
+  ngOnDestroy(): void { ++this.detailVersion; this.clearImage(); }
+  chooseImage(event: Event): void {
+    const input = event.target as HTMLInputElement, files = Array.from(input.files ?? []); input.value = '';
+    if (!files.length || this.saving()) return;
+    const supported = ['image/jpeg','image/png','image/webp','image/gif','image/avif','image/heic','image/heif','image/bmp'];
+    if (!this.canAttach() || files.some(file => !supported.includes(file.type) || !file.size || file.size > 25 * 1024 * 1024)) {
+      this.imageError.set('กรุณาเข้าสู่ระบบและเลือกรูปภาพขนาดไม่เกิน 25 MB'); return;
+    }
+    if (this.images().length + files.length > 20) { this.imageError.set('แนบรูปได้สูงสุด 20 รูป'); return; }
+    this.imageError.set('');
+    this.images.set([...this.images(), ...files.map(file => ({ key: `draft-${++this.imageSequence}`, id: null, profiles_id: null, file, url: URL.createObjectURL(file), name: file.name, error: '' }))]);
+  }
+  removeImage(key: string): void {
+    if (this.saving()) return;
+    const image = this.images().find(item => item.key === key);
+    if (image?.url) URL.revokeObjectURL(image.url);
+    this.images.set(this.images().filter(item => item.key !== key)); this.imageError.set('');
+  }
+  private async loadImage(requirementId: string, image: RequirementImage, version: number): Promise<void> {
+    try {
+      const token = this.auth.user() ? await this.auth.token() : null;
+      const response = await fetch(`/api/requirements/${requirementId}/images/${image.id}?profile=${image.profiles_id}`, { cache: 'no-store', headers: token ? { authorization: `Bearer ${token}` } : {}, signal: AbortSignal.timeout(45000) });
+      if (!response.ok) throw new Error('โหลดรูปแนบไม่สำเร็จ กรุณาเปิดรายการอีกครั้ง');
+      const blob = await response.blob();
+      if (version !== this.detailVersion || !this.images().some(item => item.key === image.key)) return;
+      const url = URL.createObjectURL(blob);
+      this.images.set(this.images().map(item => item.key === image.key ? { ...item, url } : item));
+    } catch (error) {
+      if (version === this.detailVersion) this.images.set(this.images().map(item => item.key === image.key ? { ...item, error: this.message(error) } : item));
+    }
+  }
   @ViewChild('titleInput') titleInput?: ElementRef<HTMLInputElement>;
   @ViewChild('prUrlInput') prUrlInput?: ElementRef<HTMLInputElement>;
   @ViewChild('addButton') addButton?: ElementRef<HTMLButtonElement>;
@@ -69,6 +111,8 @@ export class Requirements {
   hasFilters(): boolean { return Object.values(this.filters).some(value => !!value.trim()); }
   retry(): void { if (this.lookupReady()) void this.load(); else void this.initialize(); }
   create(): void {
+    if (this.saving()) return;
+    this.clearImage();
     ++this.detailVersion; this.detail.set(null); this.form = blank(); this.editing.set(true); this.prEditing.set(false);
     this.formError.set(''); this.fields.set({}); this.success.set(''); this.focusTitle();
   }
@@ -77,18 +121,33 @@ export class Requirements {
     try {
       const record = await this.api<Requirement>(`requirements/${id}`);
       if (version !== this.detailVersion) return;
-      this.detail.set(record); this.form = { title: record.title, description: record.description ?? '', requirement_type: record.requirement_type, priority: record.priority, status: record.status };
+      this.clearImage();
+      const attachments = record.attachments ?? (record.attachments_id && record.attachments_profiles_id ? [{ id: record.attachments_id, profiles_id: record.attachments_profiles_id }] : []);
+      this.detail.set(record); this.form = { title: record.title, description: record.description ?? '', requirement_type: record.requirement_type, priority: record.priority, status: record.status, attachments };
+      const images = attachments.map((image, index) => ({ key: `${image.profiles_id}/${image.id}`, ...image, url: '', name: `รูปแนบ ${index + 1}`, error: '' }));
+      this.images.set(images);
+      for (const image of images) void this.loadImage(record.id, image, version);
       this.editing.set(true); this.prEditing.set(false); this.formError.set(''); this.fields.set({}); this.focusTitle();
     } catch (e) { if (version === this.detailVersion) this.error.set(this.message(e)); }
   }
-  cancel(): void { ++this.detailVersion; this.editing.set(false); this.prEditing.set(false); this.addButton?.nativeElement.focus(); }
+  cancel(): void { if (this.saving()) return; ++this.detailVersion; this.clearImage(); this.editing.set(false); this.prEditing.set(false); this.addButton?.nativeElement.focus(); }
   private focusTitle(): void { setTimeout(() => this.titleInput?.nativeElement.focus()); }
   inactive(options: Master[], code: string): boolean { return !!code && !options.some(option => option.code === code); }
   async save(): Promise<void> {
     if (this.saving()) return;
+    const version = this.detailVersion;
     this.saving.set(true); this.formError.set(''); this.fields.set({});
     try {
       const current = this.detail();
+      for (const image of this.images()) {
+        if (!image.file) continue;
+        const uploaded = await this.media.save(image.file, current?.id || 'requirement', undefined, 'requirement');
+        if (version !== this.detailVersion) return;
+        const owner = this.auth.user()?.id;
+        if (!owner) throw new Error('กรุณาเข้าสู่ระบบเพื่อแนบรูป');
+        this.images.set(this.images().map(item => item.key === image.key ? { ...item, id: uploaded.id, profiles_id: owner, file: undefined } : item));
+      }
+      this.form.attachments = this.images().map(image => ({ id: image.id!, profiles_id: image.profiles_id! }));
       const record = await this.api<Requirement>(current ? `requirements/${current.id}` : 'requirements', current ? 'PATCH' : 'POST', this.form);
       // Keep detail open after creation so related PRs can be added immediately.
       await this.edit(record.id); this.success.set('บันทึก Requirement แล้ว'); await this.load();

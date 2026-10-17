@@ -21,6 +21,26 @@
           <p id="title-error" class="text-danger">{{ fields()['title'] }}</p>
           <label class="d-block mb-3">Description<textarea class="form-control" name="description" rows="4" [(ngModel)]="form.description"></textarea></label>
           <p class="text-danger">{{ fields()['description'] }}</p>
+          <section class="requirement-image mb-3" aria-label="รูปแนบ Requirement">
+            <label class="d-block">รูปแนบ (สูงสุด 20 รูป รูปละไม่เกิน 25 MB)
+              <input class="form-control" type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif,image/avif,image/heic,image/heif,image/bmp" [disabled]="!canAttach() || images().length >= 20" (change)="chooseImage($event)">
+            </label>
+            @if (!canAttach()) { <p class="text-secondary small mt-2">เข้าสู่ระบบเพื่ออัปโหลดรูปแนบ</p> }
+            <div class="requirement-image-grid">
+              @for (image of images(); track image.key; let index = $index) {
+                <figure>
+                  @if (image.url) { <a [href]="image.url" target="_blank" rel="noopener noreferrer"><img class="requirement-image-preview" [src]="image.url" [alt]="'รูปแนบ Requirement ' + (index + 1)"></a> }
+                  @else if (!image.error) { <p role="status">กำลังโหลดรูป…</p> }
+                  <figcaption>{{ image.name }}</figcaption>
+                  @if (image.error) { <p class="text-danger small" role="alert">{{ image.error }}</p> }
+                  <button class="btn btn-sm btn-outline-danger mt-2" type="button" [attr.aria-label]="'นำรูป ' + (index + 1) + ' ออก'" (click)="removeImage(image.key)">นำรูปออก</button>
+                </figure>
+              }
+            </div>
+            @if (images().length) { <p class="text-secondary small mt-2" role="status">แนบ {{ images().length }} / 20 รูป</p> }
+            @if (imageError()) { <p class="text-danger mt-2" role="alert">{{ imageError() }}</p> }
+            <p class="text-danger">{{ fields()['attachments'] || fields()['attachments_id'] }}</p>
+          </section>
           <div class="form-options">
             <label>Type *<select class="form-select" name="type" required [(ngModel)]="form.requirement_type">
               @if (detail() && inactive(types(), form.requirement_type)) { <option [value]="form.requirement_type" disabled>{{ detail()!.type_name }} (ปิดใช้งาน)</option> }

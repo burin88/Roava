@@ -160,3 +160,25 @@ Optional SQL execution test (isolated local PostgreSQL WASM, no Supabase project
 npm.cmd install --prefix tmp/roava-postgres-test --no-save --package-lock=false --ignore-scripts @electric-sql/pglite@0.3.14
 node --test scripts/test-postgres-database.mjs
 ```
+### รูปแนบ Requirement
+
+ติดตั้ง `requirement-attachments.sql` หลัง `requirements.sql` และตารางหลัก
+(หากเปิด shared backlog ให้ติดตั้ง `requirements-anonymous.sql` ก่อนสคริปต์รูปแนบ)
+สคริปต์ปรับ `requirements.attachments_id` ให้เป็น `varchar(128)` และเพิ่ม
+`attachments_profiles_id` เพื่ออ้างอิง primary key `(profiles_id,id)` ของ `attachments` อย่างถูกต้อง
+โดยใช้ `attachments.type = 'requirement'`
+
+สำหรับหลายรูป ติดตั้ง `requirement-multiple-attachments.sql` ต่อจากสคริปต์ข้างต้น
+รูปเดิมจะถูกย้ายเข้า `requirements.attachments` (รายการ JSON ของ `id` และ `profiles_id`)
+แนบได้สูงสุด 20 รูปต่อ requirement รูปละไม่เกิน 25 MB เลือกหลายไฟล์หรือเพิ่มไฟล์ทีละชุดได้
+คอลัมน์เดิมยังเก็บรหัสรูปแรกเพื่อรองรับไคลเอนต์เดิม การบันทึกรายการรูปและรายละเอียดเป็น transaction เดียวกัน
+ต้องเข้าสู่ระบบเพื่ออัปโหลด เปลี่ยนหรือนำรูปออกแล้วกดบันทึก การนำรูปออกยกเลิกเฉพาะลิงก์
+และผู้ที่อ่าน requirement ได้จึงจะอ่านรูปที่เชื่อมไว้ได้
+
+สำหรับ URL ของ R2 ที่เปิดดูรูปได้ ให้รัน `requirement-attachment-urls.sql` หลังสคริปต์หลายรูป
+วิว `requirement_listing.attachment_urls` จะคืนรายการ HTTPS URLs จาก public URL ที่ระบุในสคริปต์และ `attachments.path` ตามลำดับรูป
+เฉพาะผู้เข้าสู่ระบบที่อ่าน Requirement ได้เท่านั้นจึงเห็นรายการ URL ผู้ไม่ล็อกอินได้ `[]` และไม่มีการเพิ่มสิทธิ์อ่าน metadata
+สคริปต์ใช้ public URL ของ bucket `roava-storage`: `https://pub-53399cf357004c6ebc046f04bd7ea2b7.r2.dev`
+ตั้ง `R2_PUBLIC_BASE_URL` เป็น public URL จริงของ bucket ใน `.env` และ Cloudflare Pages environment
+รูป Requirement ที่อัปโหลดใหม่จะเก็บ URL ให้โดยอัตโนมัติ ค่านี้ไม่ใช่ `CLOUDFLARE_R2_SERVICE_URL`
+และไม่ได้เปิด public access ของ bucket ให้ รูปเดิมที่มี `bucket` และ `path` ครบจะได้ URL จากวิวทันที

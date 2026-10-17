@@ -71,14 +71,21 @@ do $$ begin
    with check(valid and exists(select 1 from public.requirements r where r.id=requirement_id and r.valid));
  end if;
 end $$;
-create or replace view public.requirement_listing with (security_invoker=true) as
- select r.*,t.name as type_name,p.name as priority_name,s.name as status_name,
+do $$ begin
+execute 'create or replace view public.requirement_listing with (security_invoker=true) as
+ select r.id,r.title,r.description,r.requirement_type,r.priority,r.status,
+ r.created_at,r.created_by,r.modified_at,r.modified_by,r.valid,
+ t.name as type_name,p.name as priority_name,s.name as status_name,
  t.sort_sequence as type_sequence,p.sort_sequence as priority_sequence,
- (select count(*) from public.requirement_prs pr where pr.requirement_id=r.id and pr.valid) as pr_count
+ (select count(*) from public.requirement_prs pr where pr.requirement_id=r.id and pr.valid) as pr_count'
+ || case when exists(select 1 from information_schema.columns where table_schema='public' and table_name='requirements' and column_name='attachments_profiles_id') then ',r.attachments_id,r.attachments_profiles_id' else '' end
+ || case when exists(select 1 from information_schema.columns where table_schema='public' and table_name='requirements' and column_name='attachments') then ',r.attachments' else '' end
+ || case when to_regprocedure('public.roava_requirement_attachment_urls(jsonb)') is not null then ',public.roava_requirement_attachment_urls(r.attachments) as attachment_urls' else '' end || '
  from public.requirements r
  join public.master_requirement_type t on t.code=r.requirement_type
  join public.master_requirement_priority p on p.code=r.priority
- join public.master_requirement_status s on s.code=r.status;
+ join public.master_requirement_status s on s.code=r.status';
+end $$;
 grant select on public.requirement_listing to anon,authenticated;
 notify pgrst,'reload schema';
 commit;

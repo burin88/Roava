@@ -44,6 +44,19 @@ test('network failures and unavailable proxy services produce actionable errors'
   const unavailable=storageWith(async()=>response(503,{}));
   await assert.rejects(unavailable.save(file,'trip'),/ยังไม่พร้อม/);
 });
+
+test('known deployment failures explain which Cloudflare setting is missing without exposing upstream errors',async()=>{
+  for(const [code,setting] of [['R2_BINDING_MISSING','R2_STORAGE'],['R2_BUCKET_NAME_MISSING','CLOUDFLARE_R2_BUCKET_NAME']]) {
+    const storage=storageWith(async()=>response(503,{code,error:'secret upstream details'}));
+    await assert.rejects(storage.save(file,'trip'),error=>error.message.includes(setting)&&!error.message.includes('secret'));
+  }
+  const storage=storageWith(async()=>response(502,{error:'secret SQL and credentials'}));
+  await assert.rejects(storage.save(file,'trip'),error=>error.message.includes('ยังไม่พร้อม')&&!error.message.includes('secret'));
+  for(const code of ['R2_OBJECT_WRITE_FAILED','R2_RECORD_WRITE_FAILED','MEDIA_PROFILE_FAILED','MEDIA_METADATA_FAILED']) {
+    const failed=storageWith(async()=>response(502,{code,error:'private upstream details'}));
+    await assert.rejects(failed.save(file,'trip'),error=>error.message.includes(code)&&!error.message.includes('private'));
+  }
+});
 test('a missing API or HTML response is distinguished from a saved image',async()=>{
   const missing=storageWith(async()=>response(404,{}));
   await assert.rejects(missing.save(file,'trip'),/ไม่พบ API/);
