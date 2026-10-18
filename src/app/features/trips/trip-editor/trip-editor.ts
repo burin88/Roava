@@ -25,7 +25,9 @@ export class TripEditor implements OnChanges {
     this.selectedCountry = this.countries.find((country) => country.code === this.model.countryCode) ?? first;
     this.cityText = this.selectedCountry.cities.find((city) => city.code === this.model.cityCode)?.name ?? this.model.cityName ?? this.model.cityCode.replace(/_/g, ' ');
     if (this.model.countryCode === 'CN' || this.model.countryCode === 'TH') {
-      this.model.provinceCode = (this.model.countryCode === 'TH' ? primaryThaiProvinceForTrip(this.model) : primaryProvinceForTrip(this.model)) ?? this.provinceByCode(this.presetProvinceCode)?.code;
+      this.model.provinceCode = (!this.trip ? this.provinceByCode(this.presetProvinceCode)?.code : undefined)
+        ?? (this.model.countryCode === 'TH' ? primaryThaiProvinceForTrip(this.model) : primaryProvinceForTrip(this.model));
+      if (!this.trip && this.presetProvinceCode) this.selectProvince();
     }
     this.provinceChosenManually = !!(this.trip?.provinceCode || this.presetProvinceCode);
     this.countryQuery = ''; this.countryMenuOpen = false;
@@ -58,7 +60,7 @@ export class TripEditor implements OnChanges {
     const province = this.provinceByCode(this.model.provinceCode);
     this.provinceChosenManually = !!province;
     const currentCityProvince = this.provinceForCity(this.cityText);
-    if (province && currentCityProvince && currentCityProvince !== province.code) {
+    if (province && currentCityProvince !== province.code) {
       this.cityText = province.capital;
     }
   }

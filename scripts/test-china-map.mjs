@@ -116,6 +116,62 @@ const loadControllerModule = file => {
 const { TripEditor } = loadControllerModule(path.resolve('src/app/features/trips/trip-editor/trip-editor.ts'));
 const chinaEditor = () => { const editor = new TripEditor(); editor.presetCountryCode = 'CN'; editor.ngOnChanges(); return editor; };
 
+test('province dropdown replaces the city field for China and Thailand in the destination row', async () => {
+  const { parseTemplate } = await import('@angular/compiler');
+  const template = fs.readFileSync('src/app/features/trips/trip-editor/trip-editor.html', 'utf8');
+  const parsed = parseTemplate(template, 'trip-editor.html');
+  assert.equal(parsed.errors, null);
+  const walk = nodes => nodes.flatMap(node => [node, ...walk(node.children ?? node.branches ?? [])]);
+  const nodes = walk(parsed.nodes);
+  const destination = nodes.find(node => node.branches?.[0]?.expression?.source === "model.countryCode === 'CN' || model.countryCode === 'TH'");
+  assert.ok(destination);
+  const [provinceBranch, cityBranch] = destination.branches.map(branch => walk(branch.children));
+  const fieldName = node => node.attributes?.find(attribute => attribute.name === 'name')?.value;
+  const province = provinceBranch.find(node => fieldName(node) === 'province');
+  assert.equal(province.name, 'select');
+  assert.ok(province.attributes.some(attribute => attribute.name === 'required'));
+  assert.ok(!provinceBranch.some(node => fieldName(node) === 'city'));
+  assert.equal(cityBranch.find(node => fieldName(node) === 'city').name, 'input');
+  assert.ok(!cityBranch.some(node => fieldName(node) === 'province'));
+  assert.ok(!provinceBranch.find(node => node.name === 'label').attributes.some(attribute => attribute.name === 'class' && attribute.value.includes('wide')));
+  assert.equal(nodes.filter(node => fieldName(node) === 'province').length, 1);
+});
+
+test('province changes replace unknown destinations with a reportable catalog city', () => {
+  for (const countryCode of ['CN', 'TH']) {
+    const editor = new TripEditor();
+    editor.presetCountryCode = countryCode;
+    editor.ngOnChanges();
+    editor.cityText = 'Unknown old destination';
+    const province = editor.availableProvinces.at(-1);
+    editor.model.provinceCode = province.code;
+    editor.selectProvince();
+    editor.submit();
+    assert.equal(editor.saved.value.provinceCode, province.code);
+    assert.equal(editor.saved.value.cityCode, province.capitalCode);
+    assert.equal(editor.saved.value.cityName, province.capital);
+  }
+});
+
+test('province-only presets override default cities and editing preserves an existing city in the province', () => {
+  const editor = new TripEditor();
+  editor.presetCountryCode = 'CN';
+  editor.presetProvinceCode = '440000';
+  editor.ngOnChanges();
+  editor.submit();
+  assert.equal(editor.saved.value.provinceCode, '440000');
+  assert.equal(editor.saved.value.cityCode, 'GUANGZHOU');
+  const original = structuredClone(editor.saved.value);
+  original.cityCode = 'SHENZHEN';
+  original.cityName = 'Shenzhen';
+  editor.trip = original;
+  editor.ngOnChanges();
+  editor.selectProvince();
+  editor.submit();
+  assert.equal(editor.saved.value.cityCode, 'SHENZHEN');
+  assert.equal(original.cityCode, 'SHENZHEN');
+});
+
 test('a new unknown city does not inherit the default Beijing highlight', () => {
   const editor = chinaEditor();
   assert.equal(editor.model.provinceCode, '110000');

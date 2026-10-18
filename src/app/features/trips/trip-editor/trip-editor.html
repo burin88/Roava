@@ -46,20 +46,20 @@
         </div>
       </label>
 
-      <label>
-        <span>City *</span>
-        <input name="city" [(ngModel)]="cityText" (ngModelChange)="updateCityProvince()" [placeholder]="selectedCountry.cities[0]?.name || 'City name'" list="journey-city-options" required>
-        <datalist id="journey-city-options">@for (city of selectedCountry.cities; track city.code) {<option [value]="city.name"></option>}</datalist>
-      </label>
-
       @if (model.countryCode === 'CN' || model.countryCode === 'TH') {
-        <label class="wide">
-          <span>{{ model.countryCode === 'TH' ? 'จังหวัดในประเทศไทย · 77 จังหวัด' : 'มณฑล / เขตระดับมณฑล' }}</span>
-          <select name="province" [(ngModel)]="model.provinceCode" (ngModelChange)="selectProvince()">
-            <option [ngValue]="undefined">ยังไม่ระบุ — ใช้เมืองหรือพิกัดสถานที่ในทริป</option>
+        <label>
+          <span>{{ model.countryCode === 'TH' ? 'จังหวัดในประเทศไทย · 77 จังหวัด *' : 'มณฑล / เขตระดับมณฑล *' }}</span>
+          <select name="province" [(ngModel)]="model.provinceCode" (ngModelChange)="selectProvince()" required>
+            <option [ngValue]="undefined">เลือกจังหวัด / มณฑล</option>
             @for (province of availableProvinces; track province.code) {<option [value]="province.code">{{ province.thaiName }} · {{ province.name }}</option>}
           </select>
           <small class="province-help">{{ model.countryCode === 'TH' ? 'ใช้ไฮไลต์จังหวัดบนแผนที่ประเทศไทย ระบบจับคู่ชื่อไทย อังกฤษ และพิกัดสถานที่ให้อัตโนมัติ' : 'ใช้ระบายสีมณฑลบนแผนที่จีน ระบบจับคู่เมืองที่รู้จักให้อัตโนมัติ' }}</small>
+        </label>
+      } @else {
+        <label>
+          <span>City *</span>
+          <input name="city" [(ngModel)]="cityText" (ngModelChange)="updateCityProvince()" [placeholder]="selectedCountry.cities[0]?.name || 'City name'" list="journey-city-options" required>
+          <datalist id="journey-city-options">@for (city of selectedCountry.cities; track city.code) {<option [value]="city.name"></option>}</datalist>
         </label>
       }
 
