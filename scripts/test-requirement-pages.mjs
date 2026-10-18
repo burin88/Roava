@@ -129,19 +129,20 @@ test('direct edit route loads the requested record and updates it without loadin
   assert.equal(f.calls.some(call => call.url.includes('requirements?')), false);
 });
 
-test('routes and toolbar expose both views; anonymous entry recognizes all requirement pages', () => {
+test('routes and toolbar expose both views; page detection recognizes all requirement pages', () => {
   const routes = {};
   vm.runInNewContext(transpile('src/app/app.routes.ts'), { exports: routes });
   assert.deepEqual(Array.from(routes.routes.slice(0, 3), route => route.path), ['requirements/new', 'requirements/:id', 'requirements']);
   const parsed = parseTemplate(read('src/app/app.html'), 'app.html');
   assert.equal(parsed.errors, null);
-  const nav = parsed.nodes.find(node => node.name === 'header').children.find(node => node.name === 'nav');
+  const header = parsed.nodes[0].branches[0].children.find(node => node.name === 'header');
+  const nav = header.children.find(node => node.name === 'nav');
   assert.ok(hasAttribute(nav.children, 'routerLink', '/requirements'));
   assert.ok(hasAttribute(nav.children, 'routerLink', '/requirements/new'));
   const exports = {};
   vm.runInNewContext(transpile('src/app/app.ts'), { exports, require: name => name === '@angular/core' ? { Component: () => () => {} } : {} });
   for (const url of ['/requirements', '/requirements/new', '/requirements/record-1?x=1', '/requirements/new/#title']) {
-    assert.equal(exports.App.prototype.anonymousRequirements.call({ router: { url } }), true, url);
+    assert.equal(exports.App.prototype.isRequirementsPage.call({ router: { url } }), true, url);
   }
-  assert.equal(exports.App.prototype.anonymousRequirements.call({ router: { url: '/trips' } }), false);
+  assert.equal(exports.App.prototype.isRequirementsPage.call({ router: { url: '/trips' } }), false);
 });
