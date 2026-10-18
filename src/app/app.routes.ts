@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 
 export const routes: Routes = [
+  { path: 'requirements/new', loadComponent: () => import('./features/requirements/requirements').then(module => module.Requirements), data: { editor: true }, title: 'Add Requirement - Roava' },
+  { path: 'requirements/:id', loadComponent: () => import('./features/requirements/requirements').then(module => module.Requirements), data: { editor: true }, title: 'Edit Requirement - Roava' },
   { path: 'requirements', loadComponent: () => import('./features/requirements/requirements').then(module => module.Requirements), title: 'Requirement Management · Roava' },
   { path: 'country/TH', loadComponent: () => import('./features/thailand/thailand-dashboard').then(module => module.ThailandDashboard), title: '77 จังหวัด · Thailand · Roava' },
   { path: 'country/CN', loadComponent: () => import('./features/china/china-dashboard').then(module => module.ChinaDashboard), title: 'China Provinces · Atlas' },

@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnDestroy, ViewChild, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { SupabaseService } from '../../core/auth/supabase.service';
 import { ApiMediaStorage } from '../../core/storage/api-media.storage';
 
@@ -15,10 +16,14 @@ type PRForm = Omit<PullRequest, 'id'>;
 const blank = (): RequirementForm => ({ title: '', description: '', requirement_type: 'FEATURE', priority: 'MEDIUM', status: 'PENDING', attachments: [] });
 
 @Component({
-  selector: 'app-requirements', imports: [FormsModule, DatePipe], providers: [ApiMediaStorage],
+  selector: 'app-requirements', imports: [FormsModule, DatePipe, RouterLink], providers: [ApiMediaStorage],
   templateUrl: './requirements.html', styleUrl: './requirements.css',
 })
 export class Requirements implements OnDestroy {
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  readonly editorPage = !!this.route.snapshot.data['editor'];
+  readonly requirementId = this.route.snapshot.paramMap.get('id');
   private readonly auth = inject(SupabaseService);
   private readonly media = inject(ApiMediaStorage);
   readonly images = signal<RequirementImage[]>([]); readonly imageError = signal('');
@@ -61,7 +66,6 @@ export class Requirements implements OnDestroy {
   }
   @ViewChild('titleInput') titleInput?: ElementRef<HTMLInputElement>;
   @ViewChild('prUrlInput') prUrlInput?: ElementRef<HTMLInputElement>;
-  @ViewChild('addButton') addButton?: ElementRef<HTMLButtonElement>;
   readonly types = signal<Master[]>([]); readonly priorities = signal<Master[]>([]); readonly statuses = signal<Master[]>([]);
   readonly items = signal<Requirement[]>([]); readonly loading = signal(false); readonly lookupReady = signal(false);
   readonly error = signal(''); readonly formError = signal(''); readonly fields = signal<Record<string, string>>({});
@@ -72,7 +76,7 @@ export class Requirements implements OnDestroy {
   filters = { search: '', requirement_type: '', priority: '', status: '' };
   form = blank(); prForm: PRForm = this.blankPR(); prId = '';
   private listVersion = 0; private detailVersion = 0;
-  constructor() { void this.initialize(); }
+  constructor() { if (this.editorPage && !this.requirementId) this.create(); void this.initialize(); }
   private blankPR(): PRForm { return { provider: 'GITHUB', repository_name: '', pr_number: '', pr_url: '', pr_status: 'OPEN' }; }
   private async api<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
     await this.auth.initialized;
@@ -92,7 +96,9 @@ export class Requirements implements OnDestroy {
         this.api<Master[]>('masters/requirement-types'), this.api<Master[]>('masters/requirement-priorities'), this.api<Master[]>('masters/requirement-statuses'),
       ]);
       this.types.set(types); this.priorities.set(priorities); this.statuses.set(statuses); this.lookupReady.set(true);
-      await this.load();
+      if (!this.editorPage) await this.load();
+      else if (this.requirementId) await this.edit(this.requirementId);
+      this.loading.set(false);
     } catch (e) { this.error.set(this.message(e)); this.loading.set(false); }
   }
   async load(page = this.page()): Promise<void> {
@@ -109,14 +115,16 @@ export class Requirements implements OnDestroy {
     finally { if (version === this.listVersion) this.loading.set(false); }
   }
   hasFilters(): boolean { return Object.values(this.filters).some(value => !!value.trim()); }
-  retry(): void { if (this.lookupReady()) void this.load(); else void this.initialize(); }
+  retry(): void { if (this.lookupReady() && !this.editorPage) void this.load(); else void this.initialize(); }
   create(): void {
-    if (this.saving()) return;
+    if (this.saving() || this.prSaving()) return;
+    if (!this.editorPage || this.requirementId) { void this.router.navigate(['/requirements/new']); return; }
     this.clearImage();
     ++this.detailVersion; this.detail.set(null); this.form = blank(); this.editing.set(true); this.prEditing.set(false);
     this.formError.set(''); this.fields.set({}); this.success.set(''); this.focusTitle();
   }
   async edit(id: string): Promise<void> {
+    if (!this.editorPage) { await this.router.navigate(['/requirements', id]); return; }
     const version = ++this.detailVersion; this.error.set('');
     try {
       const record = await this.api<Requirement>(`requirements/${id}`);
@@ -130,7 +138,7 @@ export class Requirements implements OnDestroy {
       this.editing.set(true); this.prEditing.set(false); this.formError.set(''); this.fields.set({}); this.focusTitle();
     } catch (e) { if (version === this.detailVersion) this.error.set(this.message(e)); }
   }
-  cancel(): void { if (this.saving()) return; ++this.detailVersion; this.clearImage(); this.editing.set(false); this.prEditing.set(false); this.addButton?.nativeElement.focus(); }
+  cancel(): void { if (this.saving() || this.prSaving()) return; void this.router.navigate(['/requirements']); }
   private focusTitle(): void { setTimeout(() => this.titleInput?.nativeElement.focus()); }
   inactive(options: Master[], code: string): boolean { return !!code && !options.some(option => option.code === code); }
   async save(): Promise<void> {
@@ -150,7 +158,7 @@ export class Requirements implements OnDestroy {
       this.form.attachments = this.images().map(image => ({ id: image.id!, profiles_id: image.profiles_id! }));
       const record = await this.api<Requirement>(current ? `requirements/${current.id}` : 'requirements', current ? 'PATCH' : 'POST', this.form);
       // Keep detail open after creation so related PRs can be added immediately.
-      await this.edit(record.id); this.success.set('บันทึก Requirement แล้ว'); await this.load();
+      await this.edit(record.id); this.success.set('บันทึก Requirement แล้ว');
     } catch (e) { this.formError.set(this.message(e)); this.fields.set(this.errorFields(e)); }
     finally { this.saving.set(false); }
   }
@@ -164,7 +172,7 @@ export class Requirements implements OnDestroy {
     try {
       await this.api(this.prId ? `requirement-prs/${this.prId}` : `requirements/${requirement.id}/prs`, this.prId ? 'PATCH' : 'POST', this.prForm);
       this.detail.set(await this.api<Requirement>(`requirements/${requirement.id}`)); this.prEditing.set(false);
-      this.success.set('บันทึก PR แล้ว'); await this.load();
+      this.success.set('บันทึก PR แล้ว');
     } catch (e) { this.prError.set(this.message(e)); this.prFields.set(this.errorFields(e)); }
     finally { this.prSaving.set(false); }
   }

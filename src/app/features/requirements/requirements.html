@@ -1,10 +1,15 @@
 <section class="requirements container-fluid py-4 px-3 px-md-5" aria-labelledby="requirements-title">
   <div class="d-flex flex-wrap justify-content-between gap-3 align-items-center mb-4">
     <div><p class="text-secondary mb-1">Requirement Management</p><h1 id="requirements-title">Requirements</h1><p class="text-secondary mb-0">จัดการข้อกำหนดและ Pull Requests ที่เกี่ยวข้อง</p></div>
-    <button #addButton class="btn btn-primary" type="button" [disabled]="saving() || prSaving()" (click)="create()">+ เพิ่ม Requirement</button>
+    <nav class="d-flex flex-wrap gap-2" aria-label="Requirement pages">
+      <a class="btn btn-outline-primary" routerLink="/requirements">รายการ / ค้นหา</a>
+      @if (!editorPage || requirementId) { <a class="btn btn-primary" routerLink="/requirements/new">+ เพิ่ม Requirement</a> }
+      @else if (detail()) { <button class="btn btn-primary" type="button" [disabled]="saving() || prSaving()" (click)="create()">+ เพิ่ม Requirement</button> }
+    </nav>
   </div>
   @if (success()) { <p class="alert alert-success" role="status">{{ success() }}</p> }
   <p class="text-secondary">ดู เพิ่ม และแก้ไข Requirements กับ PR ได้โดยไม่ต้องเข้าสู่ระบบ</p>
+  @if (!editorPage) {
   <form class="filters card p-3 mb-4" (ngSubmit)="load(1)" aria-label="กรอง Requirements">
     <label>ค้นหา<input class="form-control" name="search" [(ngModel)]="filters.search" placeholder="Title / Description" maxlength="500"></label>
     <label>Type<select class="form-select" name="typeFilter" [(ngModel)]="filters.requirement_type"><option value="">ALL</option>@for (item of types(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }</select></label>
@@ -12,7 +17,8 @@
     <label>Status<select class="form-select" name="statusFilter" [(ngModel)]="filters.status"><option value="">ALL</option>@for (item of statuses(); track item.code) { <option [value]="item.code">{{ item.name }}</option> }</select></label>
     <button class="btn btn-outline-primary align-self-end" type="submit" [disabled]="loading()">ค้นหา / กรอง</button>
   </form>
-  @if (editing()) {
+  }
+  @if (editorPage && editing() && (!requirementId || detail())) {
     <article class="card p-3 p-md-4 mb-4" aria-labelledby="editor-title">
       <h2 id="editor-title">{{ detail() ? 'ดู/แก้ไข Requirement' : 'เพิ่ม Requirement' }}</h2>
       <form (ngSubmit)="save()">
@@ -57,7 +63,7 @@
           </div>
           @if (formError()) { <p class="alert alert-danger mt-3" role="alert">{{ formError() }}</p> }
           @if (!lookupReady()) { <p role="status">กำลังรอ Master data — หากโหลดไม่สำเร็จ กด “ลองใหม่” ด้านล่าง</p> }
-          <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" type="submit" [disabled]="!lookupReady()">{{ saving() ? 'กำลังบันทึก…' : 'บันทึก' }}</button><button class="btn btn-outline-secondary" type="button" (click)="cancel()">ยกเลิก</button></div>
+          <div class="d-flex gap-2 mt-3"><button class="btn btn-primary" type="submit" [disabled]="!lookupReady() || loading()">{{ saving() ? 'กำลังบันทึก…' : 'บันทึก' }}</button><button class="btn btn-outline-secondary" type="button" (click)="cancel()">ยกเลิก</button></div>
         </fieldset>
       </form>
       @if (detail(); as record) {
@@ -87,12 +93,14 @@
   }
   @if (loading()) { <p class="py-5 text-center" role="status">กำลังโหลด Requirements…</p> }
   @else if (error()) { <div class="alert alert-danger" role="alert">{{ error() }} <button class="btn btn-outline-secondary ms-2" type="button" (click)="retry()">ลองใหม่</button></div> }
-  @else if (!items().length) {
+  @else if (!editorPage) {
+  @if (!items().length) {
     <div class="card empty-state text-center p-5"><h2>{{ hasFilters() ? 'ไม่พบรายการตามเงื่อนไข' : 'ยังไม่มี Requirement' }}</h2><p class="text-secondary">เพิ่ม Requirement เพื่อเริ่มติดตามงานและ Pull Requests</p><button class="btn btn-primary align-self-center" type="button" (click)="create()">+ เพิ่ม Requirement</button></div>
   } @else {
     <div class="card table-responsive"><table class="table align-middle mb-0"><caption class="px-3">{{ total() }} รายการ · เรียงตาม Type, Priority และวันสร้างจากเก่าไปใหม่</caption><thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>PR Count</th><th>Created At</th><th>Actions</th></tr></thead><tbody>
       @for (item of items(); track item.id) { <tr><td class="title-cell">{{ item.title }}</td><td>{{ item.type_name }}</td><td>{{ item.priority_name }}</td><td>{{ item.status_name }}</td><td>{{ item.pr_count }}</td><td class="text-nowrap">{{ item.created_at | date:'medium' }}</td><td><button class="btn btn-sm btn-outline-primary text-nowrap" type="button" [disabled]="saving() || prSaving()" (click)="edit(item.id)">ดู/แก้ไข</button></td></tr> }
     </tbody></table></div>
     @if (pages() > 1) { <nav class="d-flex gap-3 align-items-center justify-content-end mt-3" aria-label="แบ่งหน้า"><button class="btn btn-outline-secondary" [disabled]="page() <= 1" (click)="load(page()-1)">ก่อนหน้า</button><span>หน้า {{ page() }} / {{ pages() }}</span><button class="btn btn-outline-secondary" [disabled]="page() >= pages()" (click)="load(page()+1)">ถัดไป</button></nav> }
+  }
   }
 </section>

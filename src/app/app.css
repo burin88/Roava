@@ -6,3 +6,6 @@
 .app-header{flex-shrink:0}
 main.requirements-page{flex:1 0 auto;background:var(--bs-body-bg)}
 @media print{.app-header{display:none!important}}
+
+/* Keep toolbar choices reachable when the navigation exceeds the viewport. */
+.app-header > nav { flex-wrap:wrap; }
