@@ -6,8 +6,11 @@
 .journey-modal h2{font-family:Georgia,serif;font-size:30px;margin:4px 0}
 .journey-modal small{letter-spacing:.16em;color:#578078;font-weight:700}
 .icon-button{border:0;background:#dfdbd1;width:36px;height:36px;border-radius:50%;font-size:24px;cursor:pointer;color:#37544e}
-.journey-modal form{display:grid;grid-template-columns:1fr 1fr;gap:18px;padding:12px 32px 32px}
-.journey-modal label,.rating-field{display:grid;gap:7px;align-self:start}
+.journey-modal form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:12px 32px 32px}
+.journey-modal label,.rating-field{display:grid;gap:7px;align-self:start;min-width:0}
+/* Keep native controls and long province names inside the form's side padding. */
+.journey-modal{min-width:0}
+.journey-modal input,.journey-modal select,.journey-modal textarea{width:100%;min-width:0;max-width:100%;box-sizing:border-box}
 .journey-modal label>span,.rating-field>span{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#5f726e}
 .wide{grid-column:1/-1}
 .journey-modal input,.journey-modal select,.journey-modal textarea{border:1px solid #cbd2cc;background:#fffdf7;color:#152b29;border-radius:10px;padding:12px 13px;font:inherit;outline:none}
@@ -35,5 +38,5 @@
 .rating-options small{font-size:11px;font-weight:800;min-width:21px}
 .journey-modal footer{display:flex;justify-content:flex-end;gap:10px;padding-top:10px}
 @keyframes globe-spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
-@media(max-width:620px){.journey-modal-backdrop{padding:10px}.journey-modal form{grid-template-columns:1fr;padding:12px 20px 24px}.journey-modal header{padding:24px 20px 12px}.wide{grid-column:auto}.editor-title{align-items:flex-start}.globe-orb{width:46px;height:46px;font-size:25px}.country-panel{position:fixed;left:20px;right:20px;top:120px}}
+@media(max-width:620px){.journey-modal-backdrop{padding:10px}.journey-modal form{grid-template-columns:minmax(0,1fr);padding:12px 20px 24px}.journey-modal header{padding:24px 20px 12px}.wide{grid-column:auto}.editor-title{align-items:flex-start}.globe-orb{width:46px;height:46px;font-size:25px}.country-panel{position:fixed;left:20px;right:20px;top:120px}}
 .province-help{font-size:10px;line-height:1.7;letter-spacing:0!important;color:#50695f!important;font-weight:400!important}
