@@ -782,16 +782,9 @@ textarea.expense-dark-text {
 .time-12-input > span,
 .time-24-input > span { color: #384b46; font-weight: 800; }
 .time-12-input .meridiem { font-weight: 800; color: #126d50; }
-.time-24-input > b {
-  display: grid;
-  place-items: center;
-  align-self: stretch;
-  border-radius: 8px;
-  background: #e8f3ee;
-  color: #176e53;
-  font-size: 11px;
+.time-24-input {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
-.time-24-input > b.pm { background: #e8ecf8; color: #3d5291; }
 .time-help { color: #758680; font-size: 9px; }
 @media (max-width: 600px) {
   .place-dialog-backdrop { padding: 12px; }
