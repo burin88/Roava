@@ -25,7 +25,7 @@ function appStyle(selector) {
 }
 
 test('Requirements paints a solid theme surface across the full main area', () => {
-  assert.match(appTemplate, /<main \[class\.requirements-page\]="anonymousRequirements\(\)">/);
+  assert.match(appTemplate, /<main \[class\.requirements-page\]="isRequirementsPage\(\)">/);
   const main = appStyle('main.requirements-page');
   assert.equal(main.background, 'var(--bs-body-bg)');
   for (const theme of ['light', 'dark']) {
