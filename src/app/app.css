@@ -9,3 +9,11 @@ main.requirements-page{flex:1 0 auto;background:var(--bs-body-bg)}
 
 /* Keep toolbar choices reachable when the navigation exceeds the viewport. */
 .app-header > nav { flex-wrap:wrap; }
+
+/* Reserve a touch target for help instead of letting toolbar content squeeze it. */
+.app-header{flex-wrap:wrap}
+.toolbar-actions{flex-wrap:wrap;max-width:100%}
+.toolbar-actions > *{flex-shrink:0}
+.help-button{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:44px;min-height:44px;white-space:nowrap}
+@media(max-width:991px){.help-button{width:44px;padding:0}}
+@media(max-width:1199px){.app-header{padding-top:12px;gap:8px}.app-header>nav{order:3;width:100%;margin-left:0!important;justify-content:center}.app-header .nav-link{padding:10px 0}}
