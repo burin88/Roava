@@ -4,8 +4,24 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 import { parseTemplate } from '@angular/compiler';
+import { DatePipe } from '@angular/common';
 
 const read = path => fs.readFileSync(path, 'utf8');
+
+test('requirement timestamps use English months, a 24-hour clock and the Thai time suffix', () => {
+  const template = read('src/app/features/requirements/requirements.html');
+  assert.equal(parseTemplate(template, 'requirements.html').errors, null);
+  const timestamps = [...template.matchAll(/{{\s*((?:item|record)\.(?:created_at|modified_at))\s*\| date:'([^']+)':undefined:'([^']+)'\s*}} (น\.)/g)];
+  assert.deepEqual(timestamps.map(match => match[1]).sort(), ['item.created_at', 'record.created_at', 'record.modified_at']);
+  for (const [, field, format, locale, suffix] of timestamps) {
+    // A different injected locale must not change the requested English month.
+    const pipe = new DatePipe('th-TH');
+    for (const [hour, minute, expected] of [[13, 20, '01-Jul-2026 13:20 น.'], [0, 5, '01-Jul-2026 00:05 น.'], [23, 59, '01-Jul-2026 23:59 น.']]) {
+      const value = new Date(2026, 6, 1, hour, minute, 47);
+      assert.equal(`${pipe.transform(value, format, undefined, locale)} ${suffix}`, expected, field);
+    }
+  }
+});
 const transpile = path => ts.transpileModule(read(path), { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, experimentalDecorators: true,
 } }).outputText;
