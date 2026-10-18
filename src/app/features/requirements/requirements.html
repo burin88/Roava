@@ -67,7 +67,7 @@
         </fieldset>
       </form>
       @if (detail(); as record) {
-        <p class="small text-secondary mt-3">สร้าง {{ record.created_at | date:'medium' }} โดย {{ record.created_by }} @if (record.modified_at) { · แก้ไข {{ record.modified_at | date:'medium' }} โดย {{ record.modified_by }} }</p>
+        <p class="small text-secondary mt-3">สร้าง {{ record.created_at | date:'dd-MMM-yyyy HH:mm':undefined:'en-US' }} น. โดย {{ record.created_by }} @if (record.modified_at) { · แก้ไข {{ record.modified_at | date:'dd-MMM-yyyy HH:mm':undefined:'en-US' }} น. โดย {{ record.modified_by }} }</p>
         <hr><div class="d-flex align-items-center justify-content-between gap-3"><h3>Related PRs</h3><button class="btn btn-outline-primary" type="button" [disabled]="saving() || prSaving()" (click)="openPR()">+ เพิ่ม PR</button></div>
         @if (!record.prs.length) { <p class="py-3">ยังไม่มี Pull Request</p> }
         @else {
@@ -98,7 +98,7 @@
     <div class="card empty-state text-center p-5"><h2>{{ hasFilters() ? 'ไม่พบรายการตามเงื่อนไข' : 'ยังไม่มี Requirement' }}</h2><p class="text-secondary">เพิ่ม Requirement เพื่อเริ่มติดตามงานและ Pull Requests</p><button class="btn btn-primary align-self-center" type="button" (click)="create()">+ เพิ่ม Requirement</button></div>
   } @else {
     <div class="card table-responsive"><table class="table align-middle mb-0"><caption class="px-3">{{ total() }} รายการ · เรียงตาม Type, Priority และวันสร้างจากเก่าไปใหม่</caption><thead><tr><th>Title</th><th>Type</th><th>Priority</th><th>Status</th><th>PR Count</th><th>Created At</th><th>Actions</th></tr></thead><tbody>
-      @for (item of items(); track item.id) { <tr><td class="title-cell">{{ item.title }}</td><td>{{ item.type_name }}</td><td>{{ item.priority_name }}</td><td>{{ item.status_name }}</td><td>{{ item.pr_count }}</td><td class="text-nowrap">{{ item.created_at | date:'medium' }}</td><td><button class="btn btn-sm btn-outline-primary text-nowrap" type="button" [disabled]="saving() || prSaving()" (click)="edit(item.id)">ดู/แก้ไข</button></td></tr> }
+      @for (item of items(); track item.id) { <tr><td class="title-cell">{{ item.title }}</td><td>{{ item.type_name }}</td><td>{{ item.priority_name }}</td><td>{{ item.status_name }}</td><td>{{ item.pr_count }}</td><td class="text-nowrap">{{ item.created_at | date:'dd-MMM-yyyy HH:mm':undefined:'en-US' }} น.</td><td><button class="btn btn-sm btn-outline-primary text-nowrap" type="button" [disabled]="saving() || prSaving()" (click)="edit(item.id)">ดู/แก้ไข</button></td></tr> }
     </tbody></table></div>
     @if (pages() > 1) { <nav class="d-flex gap-3 align-items-center justify-content-end mt-3" aria-label="แบ่งหน้า"><button class="btn btn-outline-secondary" [disabled]="page() <= 1" (click)="load(page()-1)">ก่อนหน้า</button><span>หน้า {{ page() }} / {{ pages() }}</span><button class="btn btn-outline-secondary" [disabled]="page() >= pages()" (click)="load(page()+1)">ถัดไป</button></nav> }
   }
